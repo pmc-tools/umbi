@@ -8,7 +8,7 @@ version = "0.1.25"
 description = "Library for input/output of transition systems in a unified Markov binary (UMB) format."
 readme = "README.md"
 authors = [{name = "Roman Andriushchenko", email = "roman.andriu@gmail.com"}]
-license = {file = "LICENSE"}
+license = "MIT"
 dependencies = [
   "click",
   "marshmallow",
@@ -24,9 +24,7 @@ Homepage = "https://github.com/randriu/umbi"
 dev = [
   "pytest",
   "pip-tools",
-  "ruff",
   "toml-sort",
-  "twine",
   "bump-my-version",
 ]
 
@@ -36,6 +34,10 @@ include = ["umbi*"]
 
 [tool.setuptools]
 include-package-data = true
+
+[tool.pytest.ini_options]
+# This allows importing examples/ in the tests
+pythonpath = ["."]
 
 [project.scripts]
 umbi = "umbi.__main__:main"
@@ -61,7 +63,8 @@ exclude = [
   "build",
   "dist",
   ".venv",
-  ".venv/*",
+  "venv",
   ".git",
   "__pycache__",
 ]
+target-version = "py311"
