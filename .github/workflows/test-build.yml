@@ -3,7 +3,6 @@ name: test build
 on:
   push:
     branches-ignore: ["stable"]
-  pull_request:
   workflow_dispatch:
 
 permissions:

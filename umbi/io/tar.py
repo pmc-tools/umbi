@@ -4,7 +4,9 @@ Utilities for reading/wrting Tar archives.
 
 import io as std_io
 import logging
+import pathlib
 import tarfile
+
 import umbi.binary
 import umbi.datatypes
 from umbi.datatypes import (
@@ -20,7 +22,7 @@ class TarReader:
     """An auxiliary class to simplify tar reading."""
 
     @staticmethod
-    def load_tar(tarpath: str) -> dict[str, bytes]:
+    def load_tar(tarpath: str | pathlib.Path) -> dict[str, bytes]:
         """
         Load all files from a tarball into memory.
         :return: a dictionary filename -> binary string
@@ -37,7 +39,7 @@ class TarReader:
         logger.debug("successfully loaded the tarfile")
         return filename_data
 
-    def __init__(self, tarpath: str):
+    def __init__(self, tarpath: str | pathlib.Path):
         self.tarpath = tarpath
         self.filename_data = TarReader.load_tar(tarpath)
         # filenames_str = "\n".join(self.filenames)
@@ -104,7 +106,7 @@ class TarWriter:
     """An auxiliary class to simplify tar writing."""
 
     @classmethod
-    def tar_write(cls, tarpath: str, filename_data: dict[str, bytes], compression: str = "gz"):
+    def tar_write(cls, tarpath: str | pathlib.Path, filename_data: dict[str, bytes], compression: str = "gz"):
         """
         Create a tarball file with the given contents.
 
@@ -181,6 +183,6 @@ class TarWriter:
         else:
             logger.debug(f"skipping CSR file {filename_csr}")
 
-    def write(self, tarpath: str):
+    def write(self, tarpath: str | pathlib.Path):
         """Write all added files to a tarball."""
         TarWriter.tar_write(tarpath, self.filename_data)

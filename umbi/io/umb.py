@@ -2,6 +2,7 @@
 Utilities for reading and writing umbfiles.
 """
 
+import pathlib
 from enum import Enum
 import logging
 from dataclasses import dataclass, field
@@ -393,7 +394,7 @@ class UmbWriter(TarWriter):
         chunk_ranges = [x // valuation_type.alignment for x in chunk_ranges]
         self.add_common(file_csr, chunk_ranges)
 
-    def write_umb(self, umb: ExplicitUmb, umbpath: str):
+    def write_umb(self, umb: ExplicitUmb, umbpath: str | pathlib.Path):
         logger.info(f"writing umbfile to {umbpath} ...")
         self.add_index(UmbFile.INDEX_JSON, umb.index)
 
@@ -445,11 +446,11 @@ class UmbWriter(TarWriter):
         logger.info("finished writing the umbfile")
 
 
-def read_umb(umbpath: str) -> ExplicitUmb:
+def read_umb(umbpath: str | pathlib.Path) -> ExplicitUmb:
     """Read UMB from a umbfile."""
     return UmbReader(umbpath).read_umb()
 
 
-def write_umb(umb: ExplicitUmb, umbpath: str):
+def write_umb(umb: ExplicitUmb, umbpath: str | pathlib.Path):
     """Write UMB to a umbfile."""
     UmbWriter().write_umb(umb, umbpath)

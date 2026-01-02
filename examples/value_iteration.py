@@ -61,7 +61,7 @@ def main(args):
     values = reachability_vi(ats, set(args.goal_states), set(args.maximizing_players), args.precision)
     for s, v in values.items():
         if ats.has_state_valuations:
-            print(f"({' '.join(f'{k}:{v}' for k, v in ats.state_valuations.get_item_valuation(s).items())}): {v}")
+            print(f"({' '.join(f'{k.name}:{v}' for k, v in ats.state_valuations.get_item_valuation(s).items())}): {v}")
         else:
             print(f"{s}: {v}")
 

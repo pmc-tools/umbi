@@ -3,6 +3,9 @@
 umbi demo: Create an ATS from a grid string.
 """
 
+import argparse
+import pathlib
+import sys
 from fractions import Fraction
 
 import umbi
@@ -109,3 +112,27 @@ def ats_from_grid_string(grid: str) -> umbi.ats.ExplicitAts:
     )
 
     return ats
+
+
+def main(args):
+    if args.input == "-":
+        text = sys.stdin.read()
+    else:
+        with pathlib.Path(args.input).open("rt") as f:
+            text = f.read()
+    ats = ats_from_grid_string(text)
+    umbi.io.write_ats(ats, args.output)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Create an UMBI model from a gridworld text file")
+    parser.add_argument(
+        "input", help="filename of the gridworld text file (or '-' to read from stdin)", type=str, default="-"
+    )
+    parser.add_argument(
+        "--output",
+        help="Destination to write to",
+        type=pathlib.Path,
+        required=True,
+    )
+    main(parser.parse_args())

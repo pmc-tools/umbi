@@ -1,3 +1,4 @@
+import logging
 from fractions import Fraction
 
 from .common_type import (
@@ -9,6 +10,8 @@ from .common_type import (
 from .vector import vector_element_types
 from .interval import Interval
 from .utils import NumericPrimitive, Numeric
+
+log = logging.getLogger(__name__)
 
 
 def promote_numeric_primitive(value: NumericPrimitive, target_type: CommonType) -> NumericPrimitive:
@@ -25,9 +28,8 @@ def promote_numeric_primitive(value: NumericPrimitive, target_type: CommonType) 
         elif isinstance(value, int):
             return Fraction(value, 1)
         elif isinstance(value, float):
-            print(f"promoting float {value} to rational {Fraction.from_float(value)}")
+            log.debug(f"promoting float {value} to rational {Fraction.from_float(value)}")
             return Fraction.from_float(value)
-
         else:
             raise ValueError(f"cannot promote value {value} to rational")
 
