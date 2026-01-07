@@ -3,6 +3,9 @@
 umbi demo: Create an ATS from a grid string.
 """
 
+import argparse
+import pathlib
+import sys
 from fractions import Fraction
 
 import umbi
@@ -111,32 +114,25 @@ def ats_from_grid_string(grid: str) -> umbi.ats.ExplicitAts:
     return ats
 
 
-def main():
-    import logging
-
-    umbi.setup_logging(level=logging.DEBUG)
-
-    grid = """
-    ....x..g
-    ...x....
-    i.......
-    ...x.x..
-    ..xxxx..
-    """
-    filename = "grid.umb"
-    ats = ats_from_grid_string(grid)
-    print(f"Created ATS with {ats.num_states} states and {ats.num_choices} choices.")
-
-    # write to file and read back
-    umbi.io.write_ats(ats, filename)
-    ats_loaded = umbi.io.read_ats(filename)
-    print(f"Loaded ATS having {ats_loaded.num_states} states and {ats_loaded.num_choices} choices")
-
-    # simple equality check using __eq__
-    if not ats == ats_loaded:
-        print("ATS objects differ!")
-        ats.equal(ats_loaded, debug=True)
+def main(args):
+    if args.input == "-":
+        text = sys.stdin.read()
+    else:
+        with pathlib.Path(args.input).open("rt") as f:
+            text = f.read()
+    ats = ats_from_grid_string(text)
+    umbi.io.write_ats(ats, args.output)
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Create an UMBI model from a gridworld text file")
+    parser.add_argument(
+        "input", help="filename of the gridworld text file (or '-' to read from stdin)", type=str, default="-"
+    )
+    parser.add_argument(
+        "--output",
+        help="Destination to write to",
+        type=pathlib.Path,
+        required=True,
+    )
+    main(parser.parse_args())
