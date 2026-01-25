@@ -28,6 +28,7 @@ dev = [
   "ruff",
   "toml-sort",
   "bump-my-version",
+  "uv",
 ]
 
 [tool.setuptools.packages.find]
