@@ -62,7 +62,7 @@ class TarDecoder(TarReader):
         if data is None:
             return None
         chunk_ranges = self.read_vector(filename_csr, UINT64, required=True)
-        assert chunk_ranges is not None, "chunk_ranges must be provided"
+        assert chunk_ranges is not None, "chunk_ranges must be prprovided"
         assert isinstance(chunk_ranges, list)
         chunk_ranges = umbi.datatypes.csr_to_ranges(chunk_ranges)
         return umbi.binary.bytes_with_csr_to_vector(data, value_type, chunk_ranges=chunk_ranges)
@@ -93,8 +93,13 @@ class TarEncoder(TarWriter):
         data_out = umbi.binary.vector_to_bytes(data, sized_type)
         self.add(filename, data_out)
 
-    def add_bitvector(self, filename: str, data: list[bool], required: bool = False):
+    def add_bitvector(self, filename: str, data: list[bool], required: bool = False, pad_to_8_bytes: bool = False):
         """Write a bitvector."""
+        if pad_to_8_bytes:
+            items_to_add = (64 - (len(data) % 64)) % 64
+            if items_to_add > 0:
+                # logger.debug(f"padding bitvector {filename} with {items_to_add} False entries to align to 64-bit boundary")
+                data = data + [False] * items_to_add
         self.add_vector(filename, BOOL1, data, required)
 
     def add_vector_with_csr(

@@ -47,12 +47,14 @@ def bytes_to_rational(data: bytes, little_endian: bool = True) -> Fraction:
     return Fraction(numerator, denominator)
 
 
-def rational_to_bytes(value: Fraction, term_size_bytes: int, little_endian: bool = True) -> bytes:
+def rational_to_bytes(value: Fraction, size_bytes: int, little_endian: bool = True) -> bytes:
     """
     Convert a fraction to a bytestring. Both numberator and denominator are encoded as signed and unsigned integers, respectively, and have the same size.
-    :param term_size: maximum size in bytes for numerator/denominator
+    :param size_bytes: maximum size in bytes for numerator/denominator
     """
     value = normalize_rational(value)
+    assert size_bytes % 2 == 0, "size_bytes must be even to encode both numerator and denominator"
+    term_size_bytes = size_bytes // 2
     minimal_term_size = num_bytes_for_rational(value) // 2
     if term_size_bytes < minimal_term_size:
         raise ValueError(
@@ -77,6 +79,6 @@ def bits_to_rational(bits: BitArray) -> Fraction:
     return bytes_to_rational(bytestring)
 
 
-def rational_to_bits(value: Fraction, term_size_bytes: int) -> BitArray:
-    bytestring = rational_to_bytes(value, term_size_bytes=term_size_bytes)
+def rational_to_bits(value: Fraction, size_bytes: int) -> BitArray:
+    bytestring = rational_to_bytes(value, size_bytes=size_bytes)
     return BitArray(bytestring)

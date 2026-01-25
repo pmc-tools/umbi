@@ -42,18 +42,6 @@ def numeric_primitive_type_of(value: NumericPrimitive) -> NumericPrimitiveType:
         return NumericPrimitiveType.RATIONAL
 
 
-# def is_of_numeric_primitive_type(value: object, type: NumericPrimitiveType) -> bool:
-#     """Check if a value is an instance of the given common or interval type."""
-#     if not isinstance(value, NumericPrimitive):
-#         return False
-#     value_type = numeric_primitive_type_of(value)
-#     if value_type == NumericPrimitiveType.INT:
-#         # int matches all integer types
-#         return is_integer_type(type)
-#     else:
-#         return value_type == type
-
-
 def common_numeric_primitive_type(types: set[NumericPrimitiveType]) -> NumericPrimitiveType:
     """Determine the common numeric type from a set of numeric types. Used for type promotion."""
     assert len(types) > 0, "cannot determine common numeric type of empty set"

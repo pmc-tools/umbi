@@ -99,7 +99,7 @@ class SizedType:
 
     @property
     def size_bytes(self) -> int:
-        return self.size_bits // 8
+        return (self.size_bits + 7) // 8  # ceiling division
 
 
 # Common sized types used in umbi

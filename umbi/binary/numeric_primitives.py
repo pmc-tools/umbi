@@ -33,7 +33,7 @@ def numeric_primitive_to_bytes(value: NumericPrimitive, sized_type: SizedType, l
         return double_to_bytes(value, little_endian=little_endian)
     else:  # value_type == NumericPrimitiveType.RATIONAL:
         assert isinstance(value, Fraction), "expected a rational value"
-        return rational_to_bytes(value, sized_type.size_bits, little_endian=little_endian)
+        return rational_to_bytes(value, sized_type.size_bytes, little_endian=little_endian)
 
 
 def bits_to_numeric_primitive(bits: BitArray, value_type: NumericPrimitiveType) -> NumericPrimitive:

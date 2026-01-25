@@ -104,6 +104,8 @@ def vector_to_bytes(vector: list, value_sized_type: SizedType | StructType, litt
 
     chunks = [value_to_bytes(item, value_sized_type, little_endian) for item in vector]
     bytestring = b"".join(chunks)
+    expected_size = len(vector) * (value_sized_type.size_bytes)
+    assert len(bytestring) == expected_size, f"expected {expected_size} bytes, but got {len(bytestring)} bytes"
     return bytestring
 
 

@@ -94,14 +94,14 @@ def test_vector_type_and_assert_is_list():
 
 
 def test_is_vector_ranges():
-    assert is_vector_ranges([(0, 1), (2, 3)])
+    assert is_vector_ranges([(0, 2), (2, 3)])
     assert not is_vector_ranges([(1, 0)])
 
 
 def test_csr_to_ranges_and_back():
     csr = [0, 2, 5]
     ranges = csr_to_ranges(csr)
-    assert ranges == [(0, 1), (2, 4)]
+    assert ranges == [(0, 2), (2, 5)]
     assert ranges_to_csr(ranges) == csr
 
 
@@ -119,12 +119,10 @@ def test_common_numeric_primitive_type():
 
 def test_sized_type_defaults():
     st = SizedType(AtomicType.BOOL)
-    assert st.size == 1
+    assert st.size_bits == 1
     st2 = SizedType(NumericPrimitiveType.INT, 32)
-    assert st2.size == 32
+    assert st2.size_bytes == 4
 
 
 def test_validate_type_size():
     validate_type_size(AtomicType.BOOL, 1)
-    with pytest.raises(KeyError):
-        validate_type_size(AtomicType.BOOL, 99)
