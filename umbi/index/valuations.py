@@ -2,13 +2,16 @@
 Variable valuation schemas and classes.
 """
 
+from dataclasses import dataclass, field
 from marshmallow import fields, post_load, validate
 from marshmallow_oneofschema.one_of_schema import OneOfSchema
 
 import umbi.datatypes
+from .type import SizedTypeSchema
 
 from .json_schema import (
     JsonSchema,
+    JsonSchemaResult,
     FieldUint,
 )
 
@@ -16,8 +19,9 @@ from .json_schema import (
 class ValuationPaddingSchema(JsonSchema):
     """Schema for padding fields."""
 
-    padding = FieldUint(data_key="padding", required=True)
+    padding = FieldUint(data_key="padding", required=True, validate=validate.Range(min=1))
 
+    @post_load
     def make_object(self, data: dict, **kwargs) -> umbi.datatypes.StructPadding:
         """Create a Padding object from the deserialized data."""
         obj = super().make_object(data, **kwargs)
@@ -35,36 +39,30 @@ class ValuationAttributeSchema(JsonSchema):
     """Schema for variable fields."""
 
     name = fields.String(data_key="name", required=True)
-    type = fields.String(
-        data_key="type",
-        required=True,
-        validate=validate.OneOf(["bool", "int", "uint", "double", "rational", "string"]),
-    )
-    size = FieldUint(data_key="size", required=False)
-    lower = fields.Float(data_key="lower", required=False)
-    upper = fields.Float(data_key="upper", required=False)
-    offset = fields.Float(data_key="offset", required=False)
+    type = fields.Nested(SizedTypeSchema, data_key="type", required=True)
+    is_optional = fields.Boolean(data_key="is-optional", required=False, load_default=False)
+    lower = fields.Integer(data_key="lower", required=False)
+    upper = fields.Integer(data_key="upper", required=False)
+    offset = fields.Integer(data_key="offset", required=False)
 
     @post_load
     def make_object(self, data: dict, **kwargs) -> umbi.datatypes.StructAttribute:
         """Validate and create a Variable object from the deserialized data."""
         obj = super().make_object(data, **kwargs)
-
         return umbi.datatypes.StructAttribute(
             name=obj.name,
-            type=umbi.datatypes.CommonType(obj.type),
-            size=getattr(obj, "size", None),
+            sized_type=obj.type,
+            is_optional=obj.is_optional,
             lower=getattr(obj, "lower", None),
             upper=getattr(obj, "upper", None),
             offset=getattr(obj, "offset", None),
         )
 
     def dump(self, obj, *args, **kwargs):
-        assert isinstance(obj, umbi.datatypes.StructAttribute)
         obj_dict = {
             "name": obj.name,
-            "type": obj.type.value,
-            "size": obj.size,
+            "type": SizedTypeSchema().dump(obj.sized_type),
+            "is-optional": obj.is_optional,
             "lower": obj.lower,
             "upper": obj.upper,
             "offset": obj.offset,
@@ -109,31 +107,63 @@ class ValuationFieldSchema(OneOfSchema):
         return result
 
 
-class VariableValuationsSchema(JsonSchema):
+class ValuationClassSchema(JsonSchema):
     """Schema for variable valuations."""
 
-    alignment = FieldUint(data_key="alignment", required=True)
     variables = fields.List(fields.Nested(ValuationFieldSchema), data_key="variables", required=True)
 
     @post_load
     def make_object(self, data: dict, **kwargs) -> umbi.datatypes.StructType:
         obj = super().make_object(data, **kwargs)
         return umbi.datatypes.StructType(
-            alignment=obj.alignment,
             fields=obj.variables,
         )
 
     def dump(self, obj, *args, **kwargs):
         assert isinstance(obj, umbi.datatypes.StructType)
         variables = []
-        for field in obj.fields:
-            if isinstance(field, umbi.datatypes.StructPadding):
-                variables.append(ValuationPaddingSchema().dump(field))
+        for f in obj.fields:
+            if isinstance(f, umbi.datatypes.StructPadding):
+                variables.append(ValuationPaddingSchema().dump(f))
             else:
-                assert isinstance(field, umbi.datatypes.StructAttribute)
-                variables.append(ValuationAttributeSchema().dump(field))
+                assert isinstance(f, umbi.datatypes.StructAttribute)
+                variables.append(ValuationAttributeSchema().dump(f))
         obj_dict = {
-            "alignment": obj.alignment,
             "variables": variables,
         }
         return obj_dict
+
+
+class ValuationDescriptionSchema(JsonSchema):
+    unique = fields.Boolean(data_key="unique", required=True)
+    num_strings = FieldUint(data_key="#strings", required=False, validate=validate.Range(min=1))
+    classes = fields.List(
+        fields.Nested(ValuationClassSchema), data_key="classes", required=True, validate=validate.Length(min=1)
+    )
+
+    @classmethod
+    def schema_class(cls) -> type:
+        return ValuationDescription
+
+
+@dataclass
+class ValuationDescription(JsonSchemaResult):
+    unique: bool = False
+    num_strings: int | None = None
+    classes: list[umbi.datatypes.StructType] = field(default_factory=list)
+
+    @classmethod
+    def class_schema(cls) -> type:
+        return ValuationDescriptionSchema
+
+
+class ValuationsSchema(fields.Dict):
+    """Schema for variable valuations as a dictionary."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(
+            keys=fields.String(validate=validate.OneOf(["states", "choices", "branches", "observations", "players"])),
+            values=fields.Nested(ValuationDescriptionSchema),
+            *args,
+            **kwargs,
+        )

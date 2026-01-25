@@ -4,21 +4,20 @@
 
 import logging
 
-from umbi.datatypes import CommonType, StructType
+from umbi.datatypes import DataType, SizedType, StructType, BOOL1
 
 from .bitvectors import bitvector_to_bytes, bytes_to_bitvector
 from .common import (
-    bytes_to_common_value,
-    common_value_to_bytes,
-    num_bytes_for_common_type,
+    bytes_to_value,
+    value_to_bytes,
 )
-from .structs import struct_pack, struct_unpack
+from .structs import struct_unpack, struct_pack
 
 logger = logging.getLogger(__name__)
 
 
-def bytes_into_chunk_ranges(data: bytes, chunk_ranges: list[tuple[int, int]]) -> list[bytes]:
-    """Split bytestring into chunks according to chunk ranges."""
+def bytes_with_csr_into_chunks(data: bytes, chunk_ranges: list[tuple[int, int]]) -> list[bytes]:
+    """Split bytes_with_csr_into_chunksing into chunks according to chunk ranges."""
     assert len(data) == chunk_ranges[-1][1], "data length does not match the end of the last chunk range"
     return [data[start:end] for start, end in chunk_ranges]
 
@@ -40,10 +39,36 @@ def bytes_into_chunks(data: bytes, chunk_size: int) -> list[bytes]:
     return [data[i : i + chunk_size] for i in range(0, len(data), chunk_size)]
 
 
-def bytes_to_vector(
+def bytes_to_vector(data: bytes, value_sized_type: SizedType | StructType, little_endian: bool = True) -> list:
+    """
+    Decode a binary string as a list of elements of the given type.
+    :param value_sized_type: vector element (sized) type
+    :param little_endian: if True, the binary string is interpreted as little-endian
+    """
+
+    if len(data) == 0:
+        return []
+
+    if isinstance(value_sized_type, StructType):
+        assert value_sized_type.is_byte_aligned, "expected a byte-aligned type as chunk sizes"
+        chunk_size = value_sized_type.size_bytes
+        chunks = bytes_into_chunks(data, chunk_size)
+        return [struct_unpack(chunk, value_sized_type) for chunk in chunks]
+
+    if value_sized_type == BOOL1:
+        assert little_endian, "big-endianness for bitvectors is not implemented"
+        return bytes_to_bitvector(data)
+
+    assert value_sized_type.is_byte_aligned, "expected a byte-aligned type as chunk sizes"
+    chunk_size = value_sized_type.size_bytes
+    chunks = bytes_into_chunks(data, chunk_size)
+    return [bytes_to_value(chunk, value_sized_type.type, little_endian) for chunk in chunks]
+
+
+def bytes_with_csr_to_vector(
     data: bytes,
-    value_type: CommonType | StructType,
-    chunk_ranges: list[tuple[int, int]] | None = None,
+    value_type: DataType,
+    chunk_ranges: list[tuple[int, int]],
     little_endian: bool = True,
 ) -> list:
     """
@@ -52,32 +77,41 @@ def bytes_to_vector(
     :param chunk_ranges: (optional) chunk ranges to split the data into
     :param little_endian: if True, the binary string is interpreted as little-endian
     """
-
-    if isinstance(value_type, StructType):
-        assert chunk_ranges is not None, "chunk_ranges must be provided when value_type is a StructType"
-        chunks = bytes_into_chunk_ranges(data, chunk_ranges)
-        return [struct_unpack(chunk, value_type) for chunk in chunks]
-
-    if value_type == CommonType.BOOLEAN:
-        assert little_endian, "big-endianness for bitvectors is not implemented"
-        return bytes_to_bitvector(data)
-
     if len(data) == 0:
         return []
-
-    if chunk_ranges is None:
-        chunk_size = num_bytes_for_common_type(value_type)
-        chunks = bytes_into_chunks(data, chunk_size)
-    else:
-        chunks = bytes_into_chunk_ranges(data, chunk_ranges)
-    return [bytes_to_common_value(chunk, value_type, little_endian) for chunk in chunks]
+    chunks = bytes_with_csr_into_chunks(data, chunk_ranges)
+    return [bytes_to_value(chunk, value_type, little_endian) for chunk in chunks]
 
 
-def vector_to_bytes(
-    vector: list, value_type: CommonType | StructType, little_endian: bool = True
+def vector_to_bytes(vector: list, value_sized_type: SizedType | StructType, little_endian: bool = True) -> bytes:
+    """Encode a list of values as a binary string.
+    :param value_sized_type: vector element type
+    :return: encoded binary string
+    """
+
+    if len(vector) == 0:
+        logger.warning("converting empty vector to bytes")
+        return b""
+
+    if isinstance(value_sized_type, StructType):
+        chunks = [struct_pack(item, value_sized_type) for item in vector]
+        bytestring = b"".join(chunks)
+        return bytestring
+
+    if value_sized_type == BOOL1:
+        assert little_endian, "big-endianness for bitvectors is not implemented"
+        return bitvector_to_bytes(vector)
+
+    chunks = [value_to_bytes(item, value_sized_type, little_endian) for item in vector]
+    bytestring = b"".join(chunks)
+    return bytestring
+
+
+def vector_to_bytes_with_csr(
+    vector: list, value_sized_type: SizedType, little_endian: bool = True
 ) -> tuple[bytes, list[int] | None]:
     """Encode a list of values as a binary string.
-    :param value_type: vector element type
+    :param value_sized_type: vector element type
     :return: encoded binary string
     :return: (optional) chunk csr if non-trivial splitting is needed to split the resulting bytestring into chunks, e.g. for strings or non-standard rationals
     """
@@ -86,20 +120,8 @@ def vector_to_bytes(
         logger.warning("converting empty vector to bytes")
         return (b"", None)
 
-    if isinstance(value_type, StructType):
-        chunks = [struct_pack(value_type, item) for item in vector]
-        chunks_csr = chunks_to_csr(chunks)
-        bytestring = b"".join(chunks)
-        return bytestring, chunks_csr
-
-    if value_type == CommonType.BOOLEAN:
-        assert little_endian, "big-endianness for bitvectors is not implemented"
-        return (bitvector_to_bytes(vector), None)
-
-    chunks = [common_value_to_bytes(item, value_type, little_endian) for item in vector]
-    chunks_csr = None
-    if value_type == CommonType.STRING or any(len(chunk) != num_bytes_for_common_type(value_type) for chunk in chunks):
-        chunks_csr = chunks_to_csr(chunks)
+    chunks = [value_to_bytes(item, value_sized_type, little_endian) for item in vector]
+    chunks_csr = chunks_to_csr(chunks)
     bytestring = b"".join(chunks)
 
     return bytestring, chunks_csr

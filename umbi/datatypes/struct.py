@@ -7,7 +7,9 @@ The serialization operations for composites remain in umbi.binary.composites.
 
 from dataclasses import dataclass, field
 
-from .common_type import CommonType
+from .interval import IntervalType
+from .sized_type import SizedType
+from .atomic import AtomicType
 
 
 @dataclass
@@ -20,54 +22,75 @@ class StructPadding:
         if self.padding <= 0:
             raise ValueError(f"Padding must be positive ({self.padding})")
 
+    @property
+    def size_bits(self) -> int:
+        return self.padding
+
 
 @dataclass
 class StructAttribute:
     """A variable field in a composite datatype."""
 
     name: str
-    type: CommonType
-    size: int | None = (
-        None  # number of bits for values of fixed-size types; None for variable-size types (string, rational)
+    sized_type: SizedType
+    is_optional: bool = (
+        False  # if True, then the value is preceded with a presence flag, 1 = present, 0 = present but must be ignored
     )
-    lower: float | None = None  # lower bound (for numeric types)
-    upper: float | None = None  # upper bound (for numeric types)
-    offset: float | None = None  # lower value offset (for numeric types)
+    lower: int | None = None  # lower bound (for numeric types)
+    upper: int | None = None  # upper bound (for numeric types)
+    offset: int | None = None  # lower value offset (for numeric types)
 
     def validate(self):
-        if self.type not in [
-            CommonType.BOOLEAN,
-            CommonType.INT,
-            CommonType.UINT,
-            CommonType.DOUBLE,
-            CommonType.RATIONAL,
-            CommonType.STRING,
-        ]:
-            raise ValueError(f"Unsupported field type: {self.type}")
-        if self.size is None:
-            if self.type in [CommonType.INT, CommonType.UINT]:
-                raise ValueError("Field size must be specified for fixed-size types (int,uint)")
-        else:
-            if self.size <= 0:
-                raise ValueError(f"Field size must be positive ({self.size})")
-            elif self.type == CommonType.DOUBLE and self.size != 64:
-                raise ValueError("Field size for double must be 64")
+        self.sized_type.validate()
+        if isinstance(self.sized_type.type, IntervalType):
+            raise ValueError(f"Struct attribute cannot be of interval type: {self.sized_type.type}")
+        if self.offset is not None and self.offset != 0:
+            raise NotImplementedError("non-zero offset validation not implemented")
+        # TODO validate bounds for numeric types
+
+    @property
+    def size_bits(self) -> int:
+        size_bits = self.sized_type.size_bits
+        if self.is_optional:
+            size_bits += 1  # presence flag
+        return size_bits
+
+
+""" Alias for either struct field type """
+StructField = StructPadding | StructAttribute
 
 
 @dataclass
 class StructType:
     """A composite datatype consisting of attributes and paddings."""
 
-    alignment: int  # alignment in bits
-    fields: list[StructPadding | StructAttribute] = field(default_factory=list)
+    fields: list[StructField] = field(default_factory=list)
 
     def validate(self):
         for item in self.fields:
             item.validate()
-        # TODO check alignment
+
+    @property
+    def size_bits(self) -> int:
+        return sum(f.size_bits for f in self.fields)
+
+    @property
+    def is_byte_aligned(self) -> bool:
+        return self.size_bits % 8 == 0
+
+    @property
+    def size_bytes(self) -> int:
+        num_bytes = self.size_bits // 8
+        if self.size_bits % 8 != 0:
+            num_bytes += 1
+        return num_bytes
+
+    @property
+    def contains_strings(self) -> bool:
+        return any(isinstance(f, StructAttribute) and f.sized_type.type == AtomicType.STRING for f in self.fields)
 
     def __str__(self) -> str:
-        lines = [f"struct (alignment={self.alignment}):"]
+        lines = ["struct:"]
         for f in self.fields:
             lines.append(f"  {f}")
         return "\n".join(lines)
@@ -77,42 +100,19 @@ class StructType:
 
     def bits_to_pad(self) -> int:
         """Calculate the number of padding bits needed to align current struct to a full byte."""
-        total_bits = 0
-        for f in self.fields:
-            if isinstance(f, StructPadding):
-                total_bits += f.padding
-            else:  # isinstance(f, StructAttribute)
-                if f.size is None:
-                    # variable-size field will be byte-aligned, skip
-                    total_bits = 0
-                else:
-                    total_bits += f.size
-        return (8 - total_bits % 8) % 8
+        return (8 - self.size_bits % 8) % 8
 
     def add_padding(self, num_bits: int) -> None:
-        assert isinstance(num_bits, int) and num_bits >= 0
-        if num_bits == 0:
-            return
+        """Add padding bits to the struct."""
+        assert num_bits > 0
         self.fields.append(StructPadding(padding=num_bits))
 
-    def pad_to_byte(self, num_bits: int | None) -> None:
-        """Add padding bits to the struct."""
-        if num_bits is None:
-            num_bits = self.bits_to_pad()
-        assert isinstance(num_bits, int) and num_bits >= 0
-        self.add_padding(num_bits)
-        # TODO validate alignment?
+    def pad_to_byte(self) -> None:
+        """Add padding bits to align struct to a full byte."""
+        if self.is_byte_aligned:
+            return
+        self.add_padding(self.bits_to_pad())
 
-    def add_attribute(self, name: str, type: CommonType) -> None:
+    def add_attribute(self, name: str, sized_type: SizedType) -> None:
         """Add an attribute field to the struct."""
-        size = None
-        if type in [CommonType.STRING, CommonType.RATIONAL]:
-            # add padding to byte-align before string/rational
-            self.add_padding(self.bits_to_pad())
-        else:
-            size = {
-                CommonType.BOOLEAN: 1,
-                CommonType.INT: 64,
-                CommonType.DOUBLE: 64,
-            }[type]
-        self.fields.append(StructAttribute(name=name, type=type, size=size))
+        self.fields.append(StructAttribute(name=name, sized_type=sized_type))

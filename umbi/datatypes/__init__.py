@@ -2,21 +2,19 @@
 umbi.datatypes: Core datatype definitions and utilities.
 
 This package contains the fundamental datatype classes and definitions used throughout umbi,
-including intervals, composite types, vector utilities, and JSON operations. Serialization operations are delegated to umbi.binary.
+including intervals, composite types, vector utilities, and JSON operations.
 """
 
-from .common_type import (
-    CommonType,
-    is_fixed_size_integer_type,
-    is_variable_size_integer_type,
-    is_integer_type,
-    is_interval_type,
-    assert_interval_type,
-    interval_base_type,
-    is_numeric_type,
-    integer_type_signed,
-)
-from .interval import Interval
+# atomic.py
+from .atomic import AtomicType, Atomic, atomic_type_of
+
+# datatype.py
+from .datatype import DataType, ValueType, datatype_of, common_datatype
+
+# interval.py
+from .interval import IntervalType, Interval, interval_base_type, base_to_interval_type
+
+# json.py
 from .json import (
     JsonPrimitive,
     JsonList,
@@ -27,53 +25,77 @@ from .json import (
     json_to_string,
     string_to_json,
 )
-from .struct import (
-    StructPadding,
-    StructAttribute,
-    StructType,
-)
-from .utils import (
-    NumericPrimitive,
-    Numeric,
-    is_instance_of_common_type,
-)
+
+# struct.py
+from .struct import StructPadding, StructAttribute, StructType
+
+# vector.py
 from .vector import (
     VectorType,
-    VECTOR_TYPE_CSR,
     assert_is_list,
-    is_vector_of_common_type,
-    is_vector_of_type,
-    vector_element_types,
+    is_vector_ranges,
+    is_vector_csr,
     csr_to_ranges,
+    ranges_to_csr,
+    vector_element_types,
+    vector_element_type,
+    common_vector_element_type,
 )
-from .promotion import (
-    promote_numeric_primitive,
-    promote_numeric,
-    can_promote_numeric_to,
-    can_promote_to,
-    can_promote_vector_to,
-    promote_to_vector_of_numeric_primitive,
-    promote_to_vector_of_numeric,
-    promote_vector,
+
+# sized_type.py
+from .sized_type import (
+    SizedType,
+    atomic_type_default_size,
+    numeric_primitive_type_default_size,
+    interval_type_default_size,
+    type_default_size,
+    validate_atomic_type_size,
+    validate_numeric_primitive_type_size,
+    validate_interval_type_size,
+    validate_type_size,
+    BOOL1,
+    UINT16,
+    UINT32,
+    UINT64,
+)
+
+# numeric_primitive.py
+from .numeric_primitive import (
+    NumericPrimitiveType,
+    NumericPrimitive,
+    numeric_primitive_type_of,
+    common_numeric_primitive_type,
+    promote_numeric_primitive_to,
+    is_integer_type,
+    integer_type_signed,
+)
+
+# numeric.py
+from .numeric import (
+    NumericType,
+    Numeric,
+    is_numeric_primitive_type,
+    is_interval_type,
+    numeric_type_of,
+    common_numeric_type,
+    promote_numeric_to,
 )
 
 __all__ = [
-    # common_type.py
-    "CommonType",
-    "is_fixed_size_integer_type",
-    "is_variable_size_integer_type",
-    "is_integer_type",
-    "is_interval_type",
-    "assert_interval_type",
-    "interval_base_type",
-    "is_numeric_type",
-    "integer_type_signed",
+    # atomic.py
+    "AtomicType",
+    "Atomic",
+    "atomic_type_of",
+    # datatype.py
+    "DataType",
+    "ValueType",
+    "datatype_of",
+    "common_datatype",
     # interval.py
+    "IntervalType",
     "Interval",
-    # struct.py
-    "StructPadding",
-    "StructAttribute",
-    "StructType",
+    "interval_base_type",
+    "base_to_interval_type",
     # json.py
     "JsonPrimitive",
     "JsonList",
@@ -83,26 +105,48 @@ __all__ = [
     "json_remove_none_dict_values",
     "json_to_string",
     "string_to_json",
-    # utils.py
-    "NumericPrimitive",
-    "Numeric",
-    "is_instance_of_common_type",
+    # struct.py
+    "StructPadding",
+    "StructAttribute",
+    "StructType",
     # vector.py
     "VectorType",
-    "VECTOR_TYPE_CSR",
     "assert_is_list",
-    "is_vector_of_common_type",
-    "is_vector_of_type",
-    "vector_element_types",
-    "promote_vector",
-    "promote_to_vector_of_numeric",
+    "is_vector_ranges",
+    "is_vector_csr",
     "csr_to_ranges",
-    # promotion.py
-    "promote_numeric_primitive",
-    "promote_numeric",
-    "can_promote_numeric_to",
-    "can_promote_to",
-    "can_promote_vector_to",
-    "promote_to_vector_of_numeric_primitive",
-    "promote_to_vector_of_numeric",
+    "ranges_to_csr",
+    "vector_element_types",
+    "vector_element_type",
+    "common_vector_element_type",
+    # sized_type.py
+    "SizedType",
+    "atomic_type_default_size",
+    "numeric_primitive_type_default_size",
+    "interval_type_default_size",
+    "type_default_size",
+    "validate_atomic_type_size",
+    "validate_numeric_primitive_type_size",
+    "validate_interval_type_size",
+    "validate_type_size",
+    "BOOL1",
+    "UINT16",
+    "UINT32",
+    "UINT64",
+    # numeric_primitive.py
+    "NumericPrimitiveType",
+    "NumericPrimitive",
+    "numeric_primitive_type_of",
+    "common_numeric_primitive_type",
+    "promote_numeric_primitive_to",
+    "is_integer_type",
+    "integer_type_signed",
+    # numeric.py
+    "NumericType",
+    "Numeric",
+    "is_numeric_primitive_type",
+    "is_interval_type",
+    "numeric_type_of",
+    "common_numeric_type",
+    "promote_numeric_to",
 ]

@@ -4,49 +4,31 @@ Auxiliary vector operations.
 
 from dataclasses import dataclass
 
-from .common_type import CommonType
-from .utils import (
-    get_instance_type,
-    is_instance_of_common_type,
-)
+from .numeric_primitive import NumericPrimitiveType
+from .datatype import DataType, ValueType, common_datatype, datatype_of
+from .sized_type import SizedType, UINT64
+from .atomic import AtomicType
 
-# TODO add CSR vector?
+
+# TODO CSR vector as a dedicated class
 # TODO add vector of ranges (for CSR?)
 
 
 @dataclass
 class VectorType:
-    base_type: CommonType
+    type: SizedType
 
 
 """Alias for a CSR vector type."""
-VECTOR_TYPE_CSR = VectorType(CommonType.UINT64)
+CSR_VECTOR = VectorType(UINT64)
+
+"""Alias for a vector of booleans."""
+BIT_VECTOR = VectorType(SizedType(AtomicType.BOOL))
 
 
 def assert_is_list(vector: object):
     if not isinstance(vector, list):
         raise TypeError(f"expected a list/vector, got {type(vector)}")
-
-
-def is_vector_of_common_type(vector: list, element_type: CommonType) -> bool:
-    return all(is_instance_of_common_type(elem, element_type) for elem in vector)
-
-
-def is_vector_of_type(vector: list, element_type: VectorType) -> bool:
-    return is_vector_of_common_type(vector, element_type.base_type)
-
-
-def vector_element_types(vector: list) -> set[CommonType]:
-    """Determine the set of common types of elements in the vector."""
-    return set([get_instance_type(x) for x in vector])
-
-
-def vector_element_type(vector: list) -> CommonType:
-    """Determine the common type of elements in the vector. Raises an error if multiple types are found."""
-    types = vector_element_types(vector)
-    if len(types) != 1:
-        raise ValueError(f"vector has multiple element types: {types}")
-    return types.pop()
 
 
 def is_vector_ranges(ranges: list[tuple[int, int]]) -> bool:
@@ -91,3 +73,45 @@ def ranges_to_csr(ranges: list[tuple[int, int]]) -> list[int]:
     csr = [interval[0] for interval in ranges]
     csr.append(ranges[-1][-1])
     return csr
+
+
+# def is_vector_of_datatype(vector: list, element_type: DataType) -> bool:
+#     return all(is_instance_of_common_type(elem, element_type) for elem in vector)
+
+
+# def is_vector_of_type(vector: list, element_type: VectorType) -> bool:
+#     return is_vector_of_common_type(vector, element_type.base_type)
+
+
+def vector_element_types(vector: list[ValueType]) -> set[DataType]:
+    """Determine the set of common types of elements in the vector."""
+    return set([datatype_of(x) for x in vector])
+
+
+def vector_element_type(vector: list[ValueType]) -> DataType:
+    """Determine the common type of elements in the vector. Raises an error if multiple types are found."""
+    types = vector_element_types(vector)
+    if len(types) != 1:
+        raise ValueError(f"vector has multiple element types: {types}")
+    return types.pop()
+
+
+def common_vector_element_type(vector: list[ValueType]) -> DataType:
+    """Determine the common type to which all elements in the vector can be promoted."""
+    if len(vector) == 0:
+        return NumericPrimitiveType.INT  # whatever
+    return common_datatype(vector_element_types(vector))
+
+
+# def promote_to_vector_of_numeric_primitive(vector: list, target_type: NumericPrimitiveType) -> list:
+#     return [promote_numeric_primitive_to(elem, target_type) for elem in vector]
+
+
+# def promote_to_vector_of_numeric(vector: list, target_type: CommonType) -> list:
+#     return [promote_numeric(elem, target_type) for elem in vector]
+
+
+# def promote_vector(vector: list) -> list:
+#     """Promote a vector of numeric values to a common type."""
+#     target_type = can_promote_vector_to(vector)
+#     return promote_to_vector_of_numeric(vector, target_type)

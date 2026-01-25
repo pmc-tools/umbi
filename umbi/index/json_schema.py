@@ -48,6 +48,7 @@ class JsonSchema(Schema):
         """Create an object with attributes matching all the json fields. Notify about unrecognized fields."""
         extra_fields = set(data.keys()) - set(self.fields.keys())
         for f in extra_fields:
+            # TODO issue error in strict mode
             logger.warning(f"JSON contains unrecognized field: {f}")
 
         obj = self.schema_class()()
@@ -58,7 +59,8 @@ class JsonSchema(Schema):
 
     @classmethod
     def parse(cls, json_data, *args, **kwargs):
-        """Parse from a json object.
+        """
+        Parse from a json object.
         :raises: ValidationError if the json object does not conform to the schema
         """
         try:

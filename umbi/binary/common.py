@@ -2,70 +2,90 @@
 (De)serialization of common types.
 """
 
-from typing import no_type_check
-
-import umbi.datatypes
-from umbi.datatypes import CommonType, JsonLike, Numeric
-
-from .floats import bytes_to_double, double_to_bytes
-from .integers import (
-    bytes_to_fixed_size_integer,
-    fixed_size_integer_to_bytes,
-    num_bytes_for_fixed_size_integer,
+from umbi.datatypes import (
+    ValueType,
+    DataType,
+    NumericPrimitive,
+    SizedType,
+    AtomicType,
+    NumericPrimitiveType,
+    Interval,
+    IntervalType,
 )
+
+from .numeric_primitives import (
+    bytes_to_numeric_primitive,
+    numeric_primitive_to_bytes,
+    bits_to_numeric_primitive,
+    numeric_primitive_to_bits,
+)
+from .bitvectors import bits_to_bool, bool_to_bits
 from .intervals import bytes_to_interval, interval_to_bytes
-from .jsons import bytes_to_json, json_to_bytes
-from .rationals import bytes_to_rational, rational_to_bytes
 from .strings import bytes_to_string, string_to_bytes
+from bitstring import BitArray
 
 
-def num_bytes_for_common_type(type: CommonType) -> int:
-    """Return the number of bytes needed to represent a value of the given type."""
-    if umbi.datatypes.is_fixed_size_integer_type(type):
-        return num_bytes_for_fixed_size_integer(type)
-    if type == CommonType.DOUBLE:
-        return 8  # size of double
-    if type == CommonType.RATIONAL:
-        return num_bytes_for_fixed_size_integer(CommonType.INT64) + num_bytes_for_fixed_size_integer(CommonType.UINT64)
-    if umbi.datatypes.is_interval_type(type):
-        base_value_type = umbi.datatypes.interval_base_type(type)
-        return 2 * num_bytes_for_common_type(base_value_type)
-    raise ValueError(f"unsupported common value type: {type}")
-
-
-@no_type_check
-def common_value_to_bytes(value: Numeric | str | JsonLike, type: CommonType, little_endian: bool = True) -> bytes:
-    """Convert a value of a given type to a bytestring."""
-    assert umbi.datatypes.is_instance_of_common_type(value, type), f"value {value} does not match type {type}"
-    if umbi.datatypes.is_fixed_size_integer_type(type):
-        return fixed_size_integer_to_bytes(value, type, little_endian)
-    elif type == CommonType.DOUBLE:
-        return double_to_bytes(value, little_endian=little_endian)
-    elif type == CommonType.RATIONAL:
-        return rational_to_bytes(value, little_endian=little_endian)
-    elif umbi.datatypes.is_interval_type(type):
-        return interval_to_bytes(value, type, little_endian=little_endian)
-    elif type == CommonType.STRING:
-        return string_to_bytes(value)
-    elif type == CommonType.JSON:
-        return json_to_bytes(value)
-    else:
-        raise ValueError(f"unsupported common value type: {type}")
-
-
-def bytes_to_common_value(data: bytes, type: CommonType, little_endian: bool = True) -> Numeric | str | JsonLike:
+def bytes_to_value(data: bytes, value_type: DataType, little_endian: bool = True) -> ValueType:
     """Convert a binary string to a single value of the given common type."""
-    if umbi.datatypes.is_fixed_size_integer_type(type):
-        return bytes_to_fixed_size_integer(data, type, little_endian=little_endian)
-    elif type == CommonType.DOUBLE:
-        return bytes_to_double(data, little_endian=little_endian)
-    elif type == CommonType.RATIONAL:
-        return bytes_to_rational(data, little_endian=little_endian)
-    elif umbi.datatypes.is_interval_type(type):
-        return bytes_to_interval(data, type, little_endian=little_endian)
-    elif type == CommonType.STRING:
-        return bytes_to_string(data)
-    elif type == CommonType.JSON:
-        return bytes_to_json(data)
-    else:
-        raise ValueError(f"unsupported common value type: {type}")
+    if isinstance(value_type, AtomicType):
+        if value_type == AtomicType.BOOL:
+            return any(b != 0 for b in data)
+        else:  # value_type == AtomicType.STRING:
+            return bytes_to_string(data)
+    else:  # umbi.datatypes.is_numeric_type(value_type):
+        if isinstance(value_type, NumericPrimitiveType):
+            return bytes_to_numeric_primitive(data, value_type, little_endian=little_endian)
+        else:  # umbi.datatypes.is_interval_type(value_type):
+            assert isinstance(value_type, IntervalType), "expected an interval type"
+            return bytes_to_interval(data, value_type, little_endian=little_endian)
+
+
+def value_to_bytes(value: ValueType, sized_type: SizedType, little_endian: bool = True) -> bytes:
+    """Convert a value of a given type to a bytestring."""
+    type = sized_type.type
+    if isinstance(type, AtomicType):
+        if type == AtomicType.BOOL:
+            assert isinstance(value, bool), "expected a boolean value"
+            return bytes([1 if value else 0])
+        else:  # type == AtomicType.STRING:
+            assert isinstance(value, str), "expected a string value"
+            return string_to_bytes(value)
+    else:  # umbi.datatypes.is_numeric_type(type):
+        if isinstance(type, NumericPrimitiveType):
+            assert isinstance(value, NumericPrimitive), "expected a numeric value"
+            return numeric_primitive_to_bytes(value, sized_type, little_endian=little_endian)
+        else:  # umbi.datatypes.is_interval_type(type):
+            assert isinstance(type, IntervalType), "expected an interval type"
+            assert isinstance(value, Interval), "expected an interval value"
+            return interval_to_bytes(value, sized_type, little_endian=little_endian)
+
+
+def bits_to_value(bits: BitArray, value_type: DataType) -> ValueType:
+    """Convert a BitArray to a single value of the given common type."""
+    if isinstance(value_type, AtomicType):
+        if value_type == AtomicType.BOOL:
+            return bits_to_bool(bits)
+        else:  # value_type == AtomicType.STRING:
+            raise ValueError("cannot unpack string from bits")
+    else:  # umbi.datatypes.is_numeric_type(value_type):
+        if isinstance(value_type, NumericPrimitiveType):
+            return bits_to_numeric_primitive(bits, value_type)
+        else:  # umbi.datatypes.is_interval_type(value_type):
+            raise ValueError("cannot unpack interval from bits")
+
+
+def value_to_bits(value: ValueType, sized_type: SizedType) -> BitArray:
+    """Convert a value of a given type to a fixed-length bit representation."""
+    type = sized_type.type
+    if isinstance(type, AtomicType):
+        if type == AtomicType.BOOL:
+            assert isinstance(value, bool), "expected a boolean value"
+            return bool_to_bits(value, sized_type.size_bits)
+        else:  # type == AtomicType.STRING:
+            raise ValueError("cannot pack string to bits")
+    else:  # umbi.datatypes.is_numeric_type(type):
+        if isinstance(type, NumericPrimitiveType):
+            assert isinstance(value, NumericPrimitive), "expected a numeric value"
+            return numeric_primitive_to_bits(value, sized_type)
+        else:  # umbi.datatypes.is_interval_type(type):
+            raise ValueError("cannot pack interval to bits")
