@@ -309,7 +309,7 @@ class UmbWriter(TarEncoder):
 
     def add_state_files(self, umb: ExplicitUmb):
         """Add state-related files."""
-        self.add_bitvector(UmbFile.STATE_IS_INITIAL.value, umb.state_is_initial, required=True, pad_to_8_bytes=True)
+        self.add_bitvector(UmbFile.STATE_IS_INITIAL.value, umb.state_is_initial, required=True)
         self.add_vector(UmbFile.STATE_TO_CHOICES.value, UINT64, umb.state_to_choices)
         if umb.index.transition_system.num_players > 0:
             self.add_vector(UmbFile.STATE_TO_PLAYER.value, UINT32, umb.state_to_player)
@@ -319,7 +319,7 @@ class UmbWriter(TarEncoder):
             pass
         else:
             assert umb.state_is_markovian is not None, "state_is_markovian must be specified"
-            self.add_bitvector(UmbFile.STATE_IS_MARKOVIAN.value, umb.state_is_markovian, pad_to_8_bytes=True)
+            self.add_bitvector(UmbFile.STATE_IS_MARKOVIAN.value, umb.state_is_markovian)
             if umb.index.transition_system.exit_rate_type is not None:
                 self.add_vector(
                     UmbFile.STATE_TO_EXIT_RATE.value,

@@ -78,28 +78,38 @@ class TarDecoder(TarReader):
 
 
 class TarEncoder(TarWriter):
-    def add_vector(self, filename: str, sized_type: SizedType, data: list | None, required: bool = False):
+    def add_vector(
+        self,
+        filename: str,
+        sized_type: SizedType,
+        data: list | None,
+        required: bool = False,
+        pad_bitvector_to_8_bytes: bool = True,
+    ):
         """
         Write a file containing a vector of values.
         :param filename: name of the file to write
         :param sized_type: type of the values
         :param data: vector data to write
         :param required: if True, raise an error if data is None
+        :param pad_bitvector_to_8_bytes: if True and writing a bitvector, pad to a multiple of 8 bytes
         """
         if data is None:
             if required:
                 raise ValueError(f"missing required data for {filename}")
             return
+        if sized_type.type == AtomicType.BOOL and pad_bitvector_to_8_bytes:
+            items_to_add = (64 - (len(data) % 64)) % 64
+            if items_to_add > 0:
+                logger.debug(
+                    f"padding bitvector {filename} with {items_to_add} False entries to align to an 8-byte boundary"
+                )
+                data = data + [False] * items_to_add
         data_out = umbi.binary.vector_to_bytes(data, sized_type)
         self.add(filename, data_out)
 
-    def add_bitvector(self, filename: str, data: list[bool], required: bool = False, pad_to_8_bytes: bool = False):
+    def add_bitvector(self, filename: str, data: list[bool], required: bool = False):
         """Write a bitvector."""
-        if pad_to_8_bytes:
-            items_to_add = (64 - (len(data) % 64)) % 64
-            if items_to_add > 0:
-                # logger.debug(f"padding bitvector {filename} with {items_to_add} False entries to align to 64-bit boundary")
-                data = data + [False] * items_to_add
         self.add_vector(filename, BOOL1, data, required)
 
     def add_vector_with_csr(
