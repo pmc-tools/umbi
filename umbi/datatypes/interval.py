@@ -62,6 +62,8 @@ class Interval:
         return str(self)
 
     def __eq__(self, other: object) -> bool:
+        if isinstance(other, NumericPrimitive):
+            other = Interval(other, other)
         if not isinstance(other, Interval):
             return False
         return self.left == other.left and self.right == other.right

@@ -37,9 +37,9 @@ from .vector import (
     is_vector_csr,
     csr_to_ranges,
     ranges_to_csr,
-    vector_element_types,
-    vector_element_type,
-    common_vector_element_type,
+    collection_element_types,
+    collection_element_type,
+    common_collection_element_type,
 )
 
 # sized_type.py
@@ -116,9 +116,9 @@ __all__ = [
     "is_vector_csr",
     "csr_to_ranges",
     "ranges_to_csr",
-    "vector_element_types",
-    "vector_element_type",
-    "common_vector_element_type",
+    "collection_element_types",
+    "collection_element_type",
+    "common_collection_element_type",
     # sized_type.py
     "SizedType",
     "atomic_type_default_size",

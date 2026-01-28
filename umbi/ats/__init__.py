@@ -4,19 +4,18 @@ umbi.ats: Collection of interfaces over a umbfile.
 
 from .annotations import (
     Annotation,
-    AnnotationAppliesTo,
     AtomicPropositionAnnotation,
     ObservationAnnotation,
     RewardAnnotation,
 )
 from .explicit_ats import ExplicitAts, TimeType
 from .model_info import ModelInfo
-from .variable_valuations import Variable, VariableValuations, ItemValuations
+from .variable_valuations import Variable, VariableValuations, EntityValuations, EntityClassValuations
+from .entity_class import EntityClass
 
 __all__ = [
     # annotation
     "Annotation",
-    "AnnotationAppliesTo",
     "AtomicPropositionAnnotation",
     "ObservationAnnotation",
     "RewardAnnotation",
@@ -28,5 +27,8 @@ __all__ = [
     # variable_valuations
     "Variable",
     "VariableValuations",
-    "ItemValuations",
+    "EntityValuations",
+    "EntityClassValuations",
+    # entity_class
+    "EntityClass",
 ]

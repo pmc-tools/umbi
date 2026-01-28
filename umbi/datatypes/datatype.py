@@ -20,11 +20,6 @@ def datatype_of(value: ValueType) -> DataType:
         return numeric_type_of(value)
 
 
-# def is_instance_of_type(value: object, type: DataType) -> bool:
-#     """Check if a value is an instance of the given common or interval type."""
-#     return get_instance_type(value) == type
-
-
 def common_datatype(types: set[DataType]) -> DataType:
     """
     Determine the common type from a set of types. Used for type promotion.
@@ -48,7 +43,7 @@ def promote_value_to(value: ValueType, target_type: DataType) -> ValueType:
     elif target_type == AtomicType.BOOL:
         assert isinstance(value, bool), f"cannot promote {value} to bool"
         return value
-    else:  # is_numeric_type(target_type):
+    else:  # isinstance(target_type, NumericType):
         if isinstance(value, bool):
             value = int(value)
         assert isinstance(value, Numeric), f"cannot promote {value} to numeric type {target_type}"

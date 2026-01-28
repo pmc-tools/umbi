@@ -1,24 +1,26 @@
 from dataclasses import dataclass, field
 
+
 from umbi.datatypes import (
-    CommonType,
-    can_promote_numeric_to,
-    vector_element_types,
-    Numeric,
+    DataType,
+    ValueType,
 )
 
 from collections.abc import Iterable
 
+from .entity_class import EntityClass
 
+from .custom_lists import Domain
+
+
+@dataclass
 class Variable:
     """Variable data class."""
 
     # the name of the variable
     _name: str
     # sorted list of possible values
-    _domain: list[object] | None = None
-    # the type of variable values
-    _type: CommonType | None = None
+    _domain: Domain | None = None
 
     def __init__(self, name: str):
         self._name = name
@@ -28,29 +30,51 @@ class Variable:
         return self._name
 
     @property
-    def domain(self) -> list[object] | None:
-        return self._domain
-
-    @property
     def has_domain(self) -> bool:
         return self._domain is not None
 
-    @property
-    def lower(self) -> object | None:
-        return self._domain[0] if self._domain else None
+    def _assert_domain_set(self) -> None:
+        if self._domain is None:
+            raise ValueError(f"Variable '{self.name}' has no domain defined.")
+
+    def invalidate_domain(self) -> None:
+        self._domain = None
+
+    def set_domain(self, domain: Domain) -> None:
+        self._domain = domain
+        self._domain.sort()
+
+    def set_values(self, values: Iterable[ValueType]) -> None:
+        self.set_domain(Domain(values))
 
     @property
-    def upper(self) -> object | None:
-        return self._domain[-1] if self._domain else None
+    def domain(self) -> Domain:
+        self._assert_domain_set()
+        assert self._domain is not None
+        return self._domain
 
     @property
-    def type(self) -> CommonType | None:
-        return self._type
+    def type(self) -> DataType:
+        self._assert_domain_set()
+        assert self._domain is not None
+        return self._domain.type
+
+    @property
+    def lower(self) -> ValueType:
+        self._assert_domain_set()
+        assert self._domain is not None
+        return self._domain.lower
+
+    @property
+    def upper(self) -> ValueType:
+        self._assert_domain_set()
+        assert self._domain is not None
+        return self._domain.upper
 
     def __str__(self) -> str:
         if not self.has_domain:
             return f"Variable(name={self.name}, type=?, domain=?)"
-        if self.type == CommonType.INT and len(self.domain) == (self.upper - self.lower + 1):  # type: ignore
+        if self.type == DataType.INT and len(self.domain) == (self.upper - self.lower + 1):  # type: ignore
             domain_str = f"[{self.lower}..{self.upper}]"
         else:
             domain_str = str(self.domain)
@@ -60,55 +84,28 @@ class Variable:
         return self.__str__()
 
     def validate(self) -> None:
-        if not isinstance(self.name, str):
-            raise ValueError("Variable name must be a string")
-        if not self.has_domain:
-            return
-        assert isinstance(self._type, CommonType), "Variable type must be a CommonType"
-        if self.type not in [
-            CommonType.BOOLEAN,
-            CommonType.INT,
-            CommonType.DOUBLE,
-            CommonType.RATIONAL,
-            CommonType.STRING,
-        ]:
-            raise ValueError(f"Unsupported variable type: {self.type}")
-
-    def sync_domain(self, values: Iterable[bool | Numeric | str]) -> None:
-        """Sets the variable type and domain from an iterable of values."""
-        if not isinstance(values, Iterable) or not values:
-            raise TypeError("values must be a non-empty iterable")
-        self._domain = sorted(set(values))
-        types = vector_element_types(list(values))  # TODO implement as collection_element_types
-        if len(types) == 1:
-            self._type = types.pop()
-        else:
-            # mixed types, try to deduce
-            self._type = can_promote_numeric_to(types)
+        pass
 
 
+@dataclass
 class VariableValuations:
-    """Mapping from items to variable valuations."""
+    """Mapping from entity to variable valuations."""
 
     # the variable
     _variable: Variable
-    # for each item (state, action, etc.), the valuation of the variable (mutable)
-    _values: list
-
-    def __init__(self, variable: Variable):
-        self._variable = variable
-        self._values = []
+    # for each entity, the valuation of the variable
+    _values: list[ValueType | None] = field(default_factory=list)
 
     @property
     def variable(self) -> Variable:
         return self._variable
 
     @property
-    def values(self) -> list:
+    def values(self) -> list[ValueType | None]:
         return self._values
 
     @property
-    def num_items(self) -> int:
+    def num_values(self) -> int:
         return len(self._values)
 
     def __str__(self) -> str:
@@ -117,25 +114,32 @@ class VariableValuations:
     def __repr__(self) -> str:
         return self.__str__()
 
-    def ensure_capacity(self, num_items: int) -> None:
-        """Ensures that the valuations list has at least num_items entries."""
-        while len(self._values) < num_items:
+    def ensure_capacity(self, num_entities: int) -> None:
+        """Ensures that the valuations list has at least num_entities entries."""
+        while len(self._values) < num_entities:
             self._values.append(None)
 
-    def get_item_value(self, item: int) -> object:
-        """Gets the valuation for a given item index."""
-        if item < 0 or item >= self.num_items:
-            raise IndexError(f"item index {item} out of range [0, {self.num_items})")
-        return self._values[item]
+    def get_entity_value(self, entity: int) -> ValueType | None:
+        """Gets the valuation for a given entity index."""
+        if entity < 0 or entity >= self.num_values:
+            raise IndexError(f"entity index {entity} out of range [0, {self.num_values})")
+        return self._values[entity]
 
-    def set_item_value(self, item: int, value: object) -> None:
-        """Sets the valuation for a given item index. Increases capacity if needed."""
-        self.ensure_capacity(item + 1)
-        self._values[item] = value
+    def set_entity_value(self, entity: int, value: ValueType | None) -> None:
+        """Sets the valuation for a given entity index. Increases capacity if needed."""
+        self.ensure_capacity(entity + 1)
+        self._values[entity] = value
+
+    @property
+    def has_undefined_values(self) -> bool:
+        """Checks if there are any undefined (None) values."""
+        return any(v is None for v in self._values)
 
     def sync_domain(self) -> None:
         """Sets the variable domain from the valuations."""
-        self._variable.sync_domain(self._values)
+        if self.has_undefined_values:
+            raise ValueError(f"The domain cannot be synced: entity {self._values.index(None)} has undefined value.")
+        self._variable.set_values(self._values)  # type: ignore
         assert self._variable.type is not None
 
     def validate(self) -> None:
@@ -144,11 +148,11 @@ class VariableValuations:
 
 
 @dataclass
-class ItemValuations:
+class EntityValuations:
     """Maintains a collection of VariableValuations."""
 
-    # number of items (states, actions, etc.) to be associated with variable valuations
-    _num_items: int = 0
+    # number of entities (states, actions, etc.) to be associated with variable valuations
+    _num_entities: int = 0
     # for each variable name, the corresponding Variable
     _variable_name_to_variable: dict[str, Variable] = field(default_factory=dict)
     # for each variable, the corresponding VariableValuations
@@ -160,7 +164,7 @@ class ItemValuations:
         return list(self._variable_to_valuations.keys())
 
     def __str__(self) -> str:
-        lines = [f"ItemValuations(num_items={self.num_items}):"]
+        lines = [f"{self.__class__.__name__}(num_entities={self.num_entities}):"]
         for variable in self.variables:
             variable_valuation = self.get_variable_valuations(variable)
             lines.append(f"  {variable_valuation}")
@@ -172,8 +176,8 @@ class ItemValuations:
         return len(self.variables)
 
     @property
-    def num_items(self) -> int:
-        return self._num_items
+    def num_entities(self) -> int:
+        return self._num_entities
 
     def has_variable(self, variable_name: str) -> bool:
         """Checks if a VariableValuation exists for the given variable name."""
@@ -222,24 +226,24 @@ class ItemValuations:
         if self._num_items < num_items:
             self._num_items = num_items
 
-    def get_item_valuation(self, item: int) -> dict[Variable, object]:
-        """Gets the variable valuations for a given item index."""
-        if item < 0 or item >= self.num_items:
-            raise IndexError(f"item {item} out of range [0, {self.num_items})")
+    def get_entity_valuation(self, entity: int) -> dict[Variable, ValueType | None]:
+        """Gets the variable valuations for a given entity index."""
+        if entity < 0 or entity >= self.num_entities:
+            raise IndexError(f"entity {entity} out of range [0, {self.num_entities})")
         return {
-            variable: variable_valuation.get_item_value(item)
+            variable: variable_valuation.get_entity_value(entity)
             for variable, variable_valuation in self._variable_to_valuations.items()
         }
 
-    def set_item_valuation(self, item: int, valuations: dict[Variable, object]) -> None:
-        """Adds a new item with the given variable valuations."""
-        self.ensure_capacity(item + 1)
+    def set_entity_valuation(self, entity: int, valuations: dict[Variable, ValueType | None]) -> None:
+        """Adds a new entity with the given variable valuations."""
+        self.ensure_capacity(entity + 1)
         for variable, value in valuations.items():
             variable_valuation = self.get_variable_valuations(variable)
-            variable_valuation.set_item_value(item, value)
+            variable_valuation.set_entity_value(entity, value)
 
-    def remove_item(self, item: int) -> None:
-        """Removes the valuations for a given item index."""
+    def remove_entity(self, entity: int) -> None:
+        """Removes the valuations for a given entity index."""
         raise NotImplementedError
 
     def sync_domains(self) -> None:
@@ -255,17 +259,125 @@ class ItemValuations:
             assert v.type is not None, f"Variable '{v.name}' has no type after syncing domains"
         assert all(v.type is not None for v in self.variables)
         for variable_valuation in self._variable_to_valuations.values():
-            if not variable_valuation.num_items == self.num_items:
+            if not variable_valuation.num_values == self.num_entities:
                 raise ValueError(
-                    f"Variable '{variable_valuation.variable.name}' has {variable_valuation.num_items} "
-                    f"items, expected {self.num_items}"
+                    f"Variable '{variable_valuation.variable.name}' has {variable_valuation.num_values} "
+                    f"entities, expected {self.num_entities}"
                 )
             variable_valuation.validate()
 
     def __eq__(self, other) -> bool:
-        if not isinstance(other, ItemValuations):
+        if not isinstance(other, EntityValuations):
             return False
-        if self.num_items != other.num_items:
+        if self.num_entities != other.num_entities:
             return False
         # TODO more thorough comparison
         return True
+
+
+class EntityClassValuations(dict[EntityClass, EntityValuations]):
+    """Mapping from entity class to variable valuations."""
+
+    @property
+    def has_values(self) -> bool:
+        """Check if the annotation has any values set."""
+        return len(self) > 0
+
+    @property
+    def entity_classes(self) -> set[EntityClass]:
+        """Get the set of entity classes for which this annotation has values."""
+        return set(self.keys())
+
+    def has_values_for(self, entity_class: EntityClass) -> bool:
+        """Check if the annotation has values for the given entity class."""
+        return self.get(entity_class) is not None
+
+    def get_valuations_for(self, entity_class: EntityClass) -> EntityValuations:
+        """
+        Get the values for the given entity class.
+        :raises KeyError: if no values are set for the given entity class
+        """
+        if not self.has_values_for(entity_class):
+            raise KeyError(f"Annotation has no values for entity class {entity_class}")
+        return self[entity_class]
+
+    def set_valuations_for(self, entity_class: EntityClass, values: EntityValuations) -> None:
+        """Set the values for the given entity class."""
+        self[entity_class] = values
+
+    def unset_valuations_for(self, entity_class: EntityClass) -> None:
+        """Unset the values for the given entity class."""
+        if not self.has_values_for(entity_class):
+            raise KeyError(f"Annotation has no values for entity class {entity_class}")
+        del self[entity_class]
+
+    ### Convenience properties and methods for each entity class ###
+    @property
+    def has_state_valuations(self) -> bool:
+        return self.has_values_for(EntityClass.STATES)
+
+    @property
+    def has_choice_valuations(self) -> bool:
+        return self.has_values_for(EntityClass.CHOICES)
+
+    @property
+    def has_branch_valuations(self) -> bool:
+        return self.has_values_for(EntityClass.BRANCHES)
+
+    @property
+    def has_observation_valuations(self) -> bool:
+        return self.has_values_for(EntityClass.OBSERVATION)
+
+    @property
+    def has_player_valuations(self) -> bool:
+        return self.has_values_for(EntityClass.PLAYERS)
+
+    @property
+    def state_valuations(self) -> EntityValuations:
+        return self.get_valuations_for(EntityClass.STATES)
+
+    @property
+    def choice_valuations(self) -> EntityValuations:
+        return self.get_valuations_for(EntityClass.CHOICES)
+
+    @property
+    def branch_valuations(self) -> EntityValuations:
+        return self.get_valuations_for(EntityClass.BRANCHES)
+
+    @property
+    def observation_valuations(self) -> EntityValuations:
+        return self.get_valuations_for(EntityClass.OBSERVATION)
+
+    @property
+    def player_valuations(self) -> EntityValuations:
+        return self.get_valuations_for(EntityClass.PLAYERS)
+
+    def set_state_valuations(self, values: EntityValuations):
+        self.set_valuations_for(EntityClass.STATES, values)
+
+    def set_choice_valuations(self, values: EntityValuations):
+        self.set_valuations_for(EntityClass.CHOICES, values)
+
+    def set_branch_valuations(self, values: EntityValuations):
+        self.set_valuations_for(EntityClass.BRANCHES, values)
+
+    def set_observation_valuations(self, values: EntityValuations):
+        self.set_valuations_for(EntityClass.OBSERVATION, values)
+
+    def set_player_valuations(self, values: EntityValuations):
+        self.set_valuations_for(EntityClass.PLAYERS, values)
+
+    def unset_state_valuations(self):
+        self.unset_valuations_for(EntityClass.STATES)
+
+    def unset_choice_valuations(self):
+        self.unset_valuations_for(EntityClass.CHOICES)
+
+    def unset_branch_valuations(self):
+        self.unset_valuations_for(EntityClass.BRANCHES)
+
+    def unset_observation_valuations(self):
+        self.unset_valuations_for(EntityClass.OBSERVATION)
+
+    def unset_player_valuations(self):
+        self.unset_valuations_for(EntityClass.PLAYERS)

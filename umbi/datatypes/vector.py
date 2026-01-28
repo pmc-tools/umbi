@@ -4,11 +4,11 @@ Auxiliary vector operations.
 
 from dataclasses import dataclass
 
-from .numeric_primitive import NumericPrimitiveType
 from .datatype import DataType, ValueType, common_datatype, datatype_of
 from .sized_type import SizedType, UINT64
 from .atomic import AtomicType
 
+from collections.abc import Iterable
 
 # TODO CSR vector as a dedicated class
 # TODO add vector of ranges (for CSR?)
@@ -75,32 +75,22 @@ def ranges_to_csr(ranges: list[tuple[int, int]]) -> list[int]:
     return csr
 
 
-# def is_vector_of_datatype(vector: list, element_type: DataType) -> bool:
-#     return all(is_instance_of_common_type(elem, element_type) for elem in vector)
-
-
-# def is_vector_of_type(vector: list, element_type: VectorType) -> bool:
-#     return is_vector_of_common_type(vector, element_type.base_type)
-
-
-def vector_element_types(vector: list[ValueType]) -> set[DataType]:
+def collection_element_types(vector: Iterable[ValueType]) -> set[DataType]:
     """Determine the set of common types of elements in the vector."""
     return set([datatype_of(x) for x in vector])
 
 
-def vector_element_type(vector: list[ValueType]) -> DataType:
+def collection_element_type(vector: Iterable[ValueType]) -> DataType:
     """Determine the common type of elements in the vector. Raises an error if multiple types are found."""
-    types = vector_element_types(vector)
+    types = collection_element_types(vector)
     if len(types) != 1:
         raise ValueError(f"vector has multiple element types: {types}")
     return types.pop()
 
 
-def common_vector_element_type(vector: list[ValueType]) -> DataType:
+def common_collection_element_type(vector: Iterable[ValueType]) -> DataType:
     """Determine the common type to which all elements in the vector can be promoted."""
-    if len(vector) == 0:
-        return NumericPrimitiveType.INT  # whatever
-    return common_datatype(vector_element_types(vector))
+    return common_datatype(collection_element_types(vector))
 
 
 # def promote_to_vector_of_numeric_primitive(vector: list, target_type: NumericPrimitiveType) -> list:
