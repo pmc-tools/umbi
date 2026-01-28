@@ -10,9 +10,12 @@ from fractions import Fraction
 
 import umbi
 import umbi.ats
+import logging
+
+logger = logging.getLogger(__name__)
 
 
-def ats_from_grid_string(grid: str) -> umbi.ats.ExplicitAts:
+def grid_ats_from_string(grid: str) -> umbi.ats.ExplicitAts:
     """
     Create a simple ATS from a rectangular grid string.
 
@@ -58,11 +61,16 @@ def ats_from_grid_string(grid: str) -> umbi.ats.ExplicitAts:
     ats.num_states = len(cell_to_state)
     ats.set_initial_states(list(initial_states))
 
-    vx = ats.state_valuations.add_variable("x")
-    vy = ats.state_valuations.add_variable("y")
+    if ats.variable_valuations is None:
+        ats.variable_valuations = umbi.ats.EntityClassValuations()
+    if not ats.variable_valuations.has_state_valuations:
+        ats.variable_valuations.set_state_valuations(umbi.ats.EntityValuations())
+    state_valuations = ats.variable_valuations.state_valuations
+    vx = state_valuations.add_variable("x")
+    vy = state_valuations.add_variable("y")
     for state in range(ats.num_states):
         x, y = state_to_cell[state]
-        ats.state_valuations.set_item_valuation(state, {vx: x, vy: y})
+        state_valuations.set_entity_valuation(state, {vx: x, vy: y})
 
     direction_dxdy = {
         "up": (0, 1),
@@ -75,16 +83,16 @@ def ats_from_grid_string(grid: str) -> umbi.ats.ExplicitAts:
     ats.choice_to_branch = []
     ats.branch_to_target = []
     ats.branch_probabilities = []
-    ats.choice_to_action = []
-    ats.action_strings = list(direction_dxdy.keys())
-    ats.num_actions = len(ats.action_strings)
+    ats.choice_to_choice_action = []
+    ats.choice_action_to_name = list(direction_dxdy.keys())
+    ats.num_choice_actions = len(ats.choice_action_to_name)
 
     for (x, y), state in cell_to_state.items():
-        ats.state_to_choice.append(len(ats.choice_to_action))
+        ats.state_to_choice.append(len(ats.choice_to_choice_action))
 
         for direction, (dx, dy) in direction_dxdy.items():
             target = (x + dx, y + dy)
-            ats.choice_to_action.append(ats.action_strings.index(direction))
+            ats.choice_to_choice_action.append(ats.choice_action_to_name.index(direction))
             ats.choice_to_branch.append(len(ats.branch_to_target))
 
             if target in cell_to_state:
@@ -95,21 +103,18 @@ def ats_from_grid_string(grid: str) -> umbi.ats.ExplicitAts:
                 ats.branch_to_target.append(state)
                 ats.branch_probabilities.append(1)
 
-    ats.state_to_choice.append(len(ats.choice_to_action))
+    ats.state_to_choice.append(len(ats.choice_to_choice_action))
     ats.choice_to_branch.append(len(ats.branch_to_target))
-    ats.num_choices = len(ats.choice_to_action)
+    ats.num_choices = len(ats.choice_to_choice_action)
     ats.num_branches = len(ats.branch_to_target)
 
-    ats.add_ap_annotation(
-        umbi.ats.AtomicPropositionAnnotation(
-            name="goal",
-            state_to_value=[s in goal_states for s in range(ats.num_states)],
-        )
-    )
+    goal_ap = umbi.ats.AtomicPropositionAnnotation(name="goal")
+    goal_ap.set_state_values([s in goal_states for s in range(ats.num_states)])
+    ats.add_ap_annotation(goal_ap)
 
-    ats.add_reward_annotation(
-        umbi.ats.RewardAnnotation(name="step_cost", choice_to_value=[1 for _ in range(ats.num_choices)])
-    )
+    step_cost_reward = umbi.ats.RewardAnnotation(name="step_cost")
+    step_cost_reward.set_choice_values([1 for _ in range(ats.num_choices)])
+    ats.add_reward_annotation(step_cost_reward)
 
     return ats
 
@@ -120,12 +125,14 @@ def main(args):
     else:
         with pathlib.Path(args.input).open("rt") as f:
             text = f.read()
-    ats = ats_from_grid_string(text)
-    umbi.io.write_ats(ats, args.output)
+    ats = grid_ats_from_string(text)
+    ats.validate()
+    # umbi.io.write_ats(ats, args.output)
+    # logger.info(f"Written to {args.output}")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Create an UMBI model from a gridworld text file")
+    parser = argparse.ArgumentParser(description="Create an umbfile from a gridworld text file.")
     parser.add_argument(
         "input", help="filename of the gridworld text file (or '-' to read from stdin)", type=str, default="-"
     )
@@ -133,6 +140,7 @@ if __name__ == "__main__":
         "--output",
         help="Destination to write to",
         type=pathlib.Path,
-        required=True,
+        required=False,
+        default=pathlib.Path("out.umb"),
     )
     main(parser.parse_args())

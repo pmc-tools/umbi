@@ -4,8 +4,7 @@
 # import logging
 # import umbi
 
-# from examples.grid import ats_from_grid_string
-# from examples.random_walk import random_walk_ats
+# from umbi.examples.ats import grid_ats_from_string, random_walk_ats
 
 # log = logging.getLogger(__name__)
 

@@ -13,7 +13,7 @@ import time
 import umbi
 import umbi.ats
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def fill_action(s: int, action: int, num_states: int, delta: dict) -> list[tuple[int, float]]:
@@ -69,7 +69,7 @@ def fill_action(s: int, action: int, num_states: int, delta: dict) -> list[tuple
     return branches
 
 
-def generate_random_transition_function(
+def random_transition_function(
     num_states: int, seed: int | None = None, max_actions_per_state: int = 3
 ) -> tuple[dict, dict[int, list[int]], list[str]]:
     """
@@ -100,7 +100,7 @@ def generate_random_transition_function(
     action_counter = 0
 
     # forward procedure: ensure connectivity from initial state
-    log.info("Starting forward procedure")
+    logger.info("Starting forward procedure")
     forward_start = time.time()
     for i in range(1, num_states):
         s = state_order[i]
@@ -140,10 +140,10 @@ def generate_random_transition_function(
         actions_at_state[sp].append(action)
 
     forward_time = time.time() - forward_start
-    log.info(f"Forward procedure completed in {forward_time:.3f}s")
+    logger.info(f"Forward procedure completed in {forward_time:.3f}s")
 
     # backward procedure: add as many actions as possible
-    log.info("Starting backward procedure")
+    logger.info("Starting backward procedure")
     backward_start = time.time()
     for i in range(num_states - 1, -1, -1):
         s = state_order[i]
@@ -172,7 +172,7 @@ def generate_random_transition_function(
             actions_at_state[s].append(action)
 
     backward_time = time.time() - backward_start
-    log.info(f"Backward procedure completed in {backward_time:.3f}s")
+    logger.info(f"Backward procedure completed in {backward_time:.3f}s")
 
     return delta, actions_at_state, all_actions
 
@@ -185,7 +185,7 @@ def random_game_ats(num_states: int, seed: int | None = None) -> umbi.ats.Explic
     :param seed: Random seed for reproducibility.
     :return: ExplicitAts representing the random stochastic game.
     """
-    delta, actions_at_state, all_actions = generate_random_transition_function(num_states, seed)
+    delta, actions_at_state, all_actions = random_transition_function(num_states, seed)
 
     # create ATS
     ats = umbi.ats.ExplicitAts(
@@ -215,7 +215,7 @@ def random_game_ats(num_states: int, seed: int | None = None) -> umbi.ats.Explic
     )
 
     # build CSR structures
-    log.info("Building CSR structures")
+    logger.info("Building CSR structures")
     build_start = time.time()
     ats.state_to_choice = []
     ats.choice_to_choice_action = []
@@ -242,29 +242,29 @@ def random_game_ats(num_states: int, seed: int | None = None) -> umbi.ats.Explic
     ats.choice_to_branch.append(len(ats.branch_to_target))
 
     build_time = time.time() - build_start
-    log.info(f"CSR building completed in {build_time:.3f}s")
-    log.info(f"Generated random game: {num_states} states, {ats.num_choices} choices, {ats.num_branches} branches")
-    log.info(f"Player0 states: {sum(is_player0_state)}, Player1 states: {num_states - sum(is_player0_state)}")
+    logger.info(f"CSR building completed in {build_time:.3f}s")
+    logger.info(f"Generated random game: {num_states} states, {ats.num_choices} choices, {ats.num_branches} branches")
+    logger.info(f"Player0 states: {sum(is_player0_state)}, Player1 states: {num_states - sum(is_player0_state)}")
 
     return ats
 
 
 def main(args):
-    logging.basicConfig(level=logging.INFO)
     ats = random_game_ats(args.states, args.seed)
     ats.validate()
     # umbi.io.write_ats(ats, args.output)
-    # log.info(f"Written to {args.output}")
+    # logger.info(f"Written to {args.output}")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Create a random stochastic game UMBI model")
+    parser = argparse.ArgumentParser(description="Create a random stochastic game umbfile.")
     parser.add_argument("states", help="Number of states", type=int)
     parser.add_argument(
         "--output",
         help="Destination to write to",
         type=pathlib.Path,
-        required=True,
+        required=False,
+        default=pathlib.Path("out.umb"),
     )
     parser.add_argument(
         "--seed",

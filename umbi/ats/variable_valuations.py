@@ -25,6 +25,9 @@ class Variable:
     def __init__(self, name: str):
         self._name = name
 
+    def __hash__(self) -> int:
+        return hash(self._name)
+
     @property
     def name(self) -> str:
         return self._name
@@ -219,12 +222,12 @@ class EntityValuations:
         variable = self._variable_name_to_variable[variable.name]
         return self._variable_to_valuations[variable]
 
-    def ensure_capacity(self, num_items: int) -> None:
-        """Ensures that all VariableValuations have at least num_items entries."""
+    def ensure_capacity(self, num_entities: int) -> None:
+        """Ensures that all VariableValuations have at least num_entities entries."""
         for variable_valuation in self._variable_to_valuations.values():
-            variable_valuation.ensure_capacity(num_items)
-        if self._num_items < num_items:
-            self._num_items = num_items
+            variable_valuation.ensure_capacity(num_entities)
+        if self._num_entities < num_entities:
+            self._num_entities = num_entities
 
     def get_entity_valuation(self, entity: int) -> dict[Variable, ValueType | None]:
         """Gets the variable valuations for a given entity index."""

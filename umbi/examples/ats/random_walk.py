@@ -11,7 +11,7 @@ from fractions import Fraction
 import umbi
 import umbi.ats
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def random_walk_ats(num_states: int) -> umbi.ats.ExplicitAts:
@@ -60,8 +60,6 @@ def random_walk_ats(num_states: int) -> umbi.ats.ExplicitAts:
 
     ats.state_is_markovian = [True] * ats.num_states
     ats.state_exit_rate = [1] * ats.num_states
-
-    log.info("Branch probability type is %s", ats.branch_probability_type)
 
     # example: APs
     ats.add_ap_annotation(
@@ -113,16 +111,19 @@ def random_walk_ats(num_states: int) -> umbi.ats.ExplicitAts:
 
 def main(args):
     ats = random_walk_ats(args.states)
-    umbi.io.write_ats(ats, args.output)
+    ats.validate()
+    # umbi.io.write_ats(ats, args.output)
+    # logger.info(f"Written to {args.output}")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Create a random walk UMBI model")
+    parser = argparse.ArgumentParser(description="Create a random walk umbfile.")
     parser.add_argument("states", help="Number of states", type=int)
     parser.add_argument(
         "--output",
         help="Destination to write to",
         type=pathlib.Path,
-        required=True,
+        required=False,
+        default=pathlib.Path("out.umb"),
     )
     main(parser.parse_args())
