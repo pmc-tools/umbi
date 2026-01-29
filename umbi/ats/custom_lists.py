@@ -32,7 +32,7 @@ class TypedIterable(Iterable[ValueType]):
 
 class Domain(set[ValueType], TypedIterable):
     """
-    A set of values with additional information about the range. The collection can be freely modified, calling sync()
+    A set of values with additional information about the range. The collection can be freely modified, calling sort()
     caches the sorted domain.
     """
 
