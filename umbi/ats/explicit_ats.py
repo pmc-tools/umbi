@@ -1,9 +1,8 @@
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from enum import Enum
 from typing import Iterable
 
-from umbi.datatypes import DataType, common_collection_element_type
 from .entity_class import EntityClass
 from .annotations import (
     Annotation,
@@ -58,17 +57,17 @@ class ExplicitAts:
 
     num_branches: int = 0
     """Number of branches."""
-    choice_to_branch: list[int] | None = None
+    choice_to_branches: list[int] | None = None
     """CSR list of length num_choices + 1. Must be set if num_branches > 0."""
 
     branch_to_target: list[int] | None = None
     """Branch-to-target-state mapping. Must be set if num_branches > 0."""
-    branch_probabilities: list | None = None
+    branch_to_probability: list | None = None
     """Branch-to-probability mapping. Must be set if num_branches > 0. Can contain arbitrary Numeric values."""
 
     state_is_markovian: list[bool] | None = None
     """State-to-whether-markovian mapping. Must be set if time is TimeType.STOCHASTIC."""
-    state_exit_rate: list | None = None
+    state_to_exit_rate: list | None = None
     """State-to-exit-rate mapping. Must be set if time is TimeType.STOCHASTIC. Can contain arbitrary Numeric values."""
 
     num_choice_actions: int = 0
@@ -96,6 +95,16 @@ class ExplicitAts:
 
     variable_valuations: EntityClassValuations | None = None
     """EntityClassValuations associated with the ATS."""
+
+    def __str__(self) -> str:
+        lines = [f"{self.__class__.__name__}("]
+        for dataclass_field in fields(self):
+            lines.append(f"  {dataclass_field.name}={getattr(self, dataclass_field.name)!r}")
+        lines.append(")")
+        return "\n".join(lines)
+
+    def __repr__(self) -> str:
+        return self.__str__()
 
     # helper properties and methods
 
@@ -143,22 +152,10 @@ class ExplicitAts:
 
     def choice_branch_range(self, choice: int) -> Iterable[int]:
         """Return the branch range of the given choice."""
-        if self.choice_to_branch is None:
-            raise ValueError("choice_to_branch is not set")
+        if self.choice_to_branches is None:
+            raise ValueError("choice_to_branches is not set")
         assert choice <= self.num_choices
-        return range(self.choice_to_branch[choice], self.choice_to_branch[choice + 1])
-
-    @property
-    def branch_probability_type(self) -> DataType | None:
-        if self.branch_probabilities is None:
-            return None
-        return common_collection_element_type(self.branch_probabilities)
-
-    @property
-    def exit_rate_type(self) -> DataType | None:
-        if self.state_exit_rate is None:
-            return None
-        return common_collection_element_type(self.state_exit_rate)
+        return range(self.choice_to_branches[choice], self.choice_to_branches[choice + 1])
 
     ### Rewards. ###
 
@@ -268,9 +265,9 @@ class ExplicitAts:
         if self.state_to_choice is not None:
             if len(self.state_to_choice) != self.num_states + 1:
                 raise ValueError("expected len(state_to_choice) == num_states+1")
-        if self.choice_to_branch is not None:
-            if len(self.choice_to_branch) != self.num_choices + 1:
-                raise ValueError("expected len(choice_to_branch) == num_choices+1")
+        if self.choice_to_branches is not None:
+            if len(self.choice_to_branches) != self.num_choices + 1:
+                raise ValueError("expected len(choice_to_branches) == num_choices+1")
         if self.branch_to_target is not None:
             if len(self.branch_to_target) != self.num_branches:
                 raise ValueError("expected len(branch_to_target) == num_branches")
@@ -293,7 +290,7 @@ class ExplicitAts:
                     EntityClass.STATES: self.num_states,
                     EntityClass.CHOICES: self.num_choices,
                     EntityClass.BRANCHES: self.num_branches,
-                    EntityClass.OBSERVATION: self.num_observations,
+                    EntityClass.OBSERVATIONS: self.num_observations,
                     EntityClass.PLAYERS: self.num_players,
                 }[entity_class]
                 if not valuations.num_entities == num_entities:

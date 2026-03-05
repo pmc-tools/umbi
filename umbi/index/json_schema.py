@@ -14,7 +14,7 @@ from marshmallow import (
     post_load,
 )
 
-import umbi.datatypes
+import umbi
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +66,7 @@ class JsonSchema(Schema):
         try:
             return cls().load(json_data, *args, **kwargs)
         except ValidationError as e:
-            logger.error(f"{cls} validation error:")
+            logger.error(f"{cls} validation error")
             # messages is actually a json object, so we can pretty print it
             logger.error(umbi.datatypes.json_to_string(e.messages))  # type: ignore
             raise e

@@ -9,7 +9,6 @@ import pathlib
 from fractions import Fraction
 
 import umbi
-import umbi.ats
 
 logger = logging.getLogger(__name__)
 
@@ -34,32 +33,32 @@ def random_walk_ats(num_states: int) -> umbi.ats.ExplicitAts:
     # build structure
     ats.state_to_choice = []
     ats.choice_to_choice_action = []
-    ats.choice_to_branch = []
+    ats.choice_to_branches = []
     ats.branch_to_target = []
-    ats.branch_probabilities = []
+    ats.branch_to_probability = []
 
     for state in range(ats.num_states):
         ats.state_to_choice.append(len(ats.choice_to_choice_action))
 
         # left action
         ats.choice_to_choice_action.append(0)
-        ats.choice_to_branch.append(len(ats.branch_to_target))
+        ats.choice_to_branches.append(len(ats.branch_to_target))
         left = max(0, state - 1)
         ats.branch_to_target.extend([left, state])
-        ats.branch_probabilities.extend([Fraction(9, 10), Fraction(1, 10)])
+        ats.branch_to_probability.extend([Fraction(9, 10), Fraction(1, 10)])
 
         # right action
         ats.choice_to_choice_action.append(1)
-        ats.choice_to_branch.append(len(ats.branch_to_target))
+        ats.choice_to_branches.append(len(ats.branch_to_target))
         right = min(ats.num_states - 1, state + 1)
         ats.branch_to_target.extend([right, state])
-        ats.branch_probabilities.extend([0.9, 0.1])
+        ats.branch_to_probability.extend([Fraction(9, 10), Fraction(1, 10)])
 
     ats.state_to_choice.append(len(ats.choice_to_choice_action))
-    ats.choice_to_branch.append(len(ats.branch_to_target))
+    ats.choice_to_branches.append(len(ats.branch_to_target))
 
     ats.state_is_markovian = [True] * ats.num_states
-    ats.state_exit_rate = [1] * ats.num_states
+    ats.state_to_exit_rate = [1] * ats.num_states
 
     # example: APs
     ats.add_ap_annotation(

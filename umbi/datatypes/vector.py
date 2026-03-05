@@ -4,7 +4,7 @@ Auxiliary vector operations.
 
 from dataclasses import dataclass
 
-from .datatype import DataType, ValueType, common_datatype, datatype_of
+from .datatype import DataType, ValueType, common_datatype, datatype_of, promote_value_to
 from .sized_type import SizedType, UINT64
 from .atomic import AtomicType
 
@@ -75,33 +75,24 @@ def ranges_to_csr(ranges: list[tuple[int, int]]) -> list[int]:
     return csr
 
 
-def collection_element_types(vector: Iterable[ValueType]) -> set[DataType]:
-    """Determine the set of common types of elements in the vector."""
-    return set([datatype_of(x) for x in vector])
+def collection_element_types(collection: Iterable[ValueType]) -> set[DataType]:
+    """Determine the set of common types of elements in the collection."""
+    return set([datatype_of(x) for x in collection])
 
 
-def collection_element_type(vector: Iterable[ValueType]) -> DataType:
-    """Determine the common type of elements in the vector. Raises an error if multiple types are found."""
-    types = collection_element_types(vector)
+def collection_element_type(collection: Iterable[ValueType]) -> DataType:
+    """Determine the common type of elements in the collection. Raises an error if multiple types are found."""
+    types = collection_element_types(collection)
     if len(types) != 1:
-        raise ValueError(f"vector has multiple element types: {types}")
+        raise ValueError(f"collection has multiple element types: {types}")
     return types.pop()
 
 
-def common_collection_element_type(vector: Iterable[ValueType]) -> DataType:
-    """Determine the common type to which all elements in the vector can be promoted."""
-    return common_datatype(collection_element_types(vector))
+def common_collection_element_type(collection: Iterable[ValueType]) -> DataType:
+    """Determine the common type to which all elements in the collection can be promoted."""
+    return common_datatype(collection_element_types(collection))
 
 
-# def promote_to_vector_of_numeric_primitive(vector: list, target_type: NumericPrimitiveType) -> list:
-#     return [promote_numeric_primitive_to(elem, target_type) for elem in vector]
-
-
-# def promote_to_vector_of_numeric(vector: list, target_type: CommonType) -> list:
-#     return [promote_numeric(elem, target_type) for elem in vector]
-
-
-# def promote_vector(vector: list) -> list:
-#     """Promote a vector of numeric values to a common type."""
-#     target_type = can_promote_vector_to(vector)
-#     return promote_to_vector_of_numeric(vector, target_type)
+def promote_vector_to(vector: list[ValueType], target_type: DataType) -> list[ValueType]:
+    """Promote a vector of values to the target type."""
+    return [promote_value_to(v, target_type) for v in vector]

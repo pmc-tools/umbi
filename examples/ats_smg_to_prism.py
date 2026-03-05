@@ -8,7 +8,6 @@ import logging
 import pathlib
 
 import umbi
-import umbi.ats
 import umbi.examples.ats
 
 log = logging.getLogger(__name__)
@@ -22,7 +21,7 @@ def ats_smg_to_prism(ats: umbi.ats.ExplicitAts, output_path: pathlib.Path) -> No
     :param output_path: path to write the PRISM file.
     """
     assert ats.choice_to_choice_action is not None, "ATS must have choice to choice action mapping"
-    assert ats.branch_probabilities is not None, "ATS must have branch probabilities"
+    assert ats.branch_to_probability is not None, "ATS must have branch probabilities"
     assert ats.branch_to_target is not None, "ATS must have branch to target mapping"
     assert ats.choice_action_to_name is not None, "ATS must have choice action to name mapping"
 
@@ -77,7 +76,7 @@ def ats_smg_to_prism(ats: umbi.ats.ExplicitAts, output_path: pathlib.Path) -> No
                         branches = []
                         for branch in ats.choice_branch_range(choice):
                             target = ats.branch_to_target[branch]
-                            prob = ats.branch_probabilities[branch]
+                            prob = ats.branch_to_probability[branch]
                             branches.append((target, prob))
 
                         # write transition
@@ -106,7 +105,7 @@ def ats_smg_to_prism(ats: umbi.ats.ExplicitAts, output_path: pathlib.Path) -> No
                     branches = []
                     for branch in ats.choice_branch_range(choice):
                         target = ats.branch_to_target[branch]
-                        prob = ats.branch_probabilities[branch]
+                        prob = ats.branch_to_probability[branch]
                         branches.append((target, prob))
 
                     # write transition

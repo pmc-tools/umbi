@@ -2,7 +2,7 @@
 (De)serialization of jsons.
 """
 
-import umbi.datatypes
+import umbi
 
 from .strings import bytes_to_string, string_to_bytes
 

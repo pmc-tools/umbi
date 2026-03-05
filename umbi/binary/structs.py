@@ -124,6 +124,7 @@ class StructPacker:
         self.append_to_buffer(bits)
 
     def pack_struct(self, value_sized_type: StructType, values: dict[str, ValueType | None]) -> bytes:
+        assert value_sized_type.is_byte_aligned, "cannot pack a struct that is not byte-aligned"
         for field in value_sized_type:
             if isinstance(field, StructPadding):
                 self.add_padding(field)

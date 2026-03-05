@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from umbi.datatypes import (
     DataType,
     ValueType,
+    NumericPrimitiveType,
 )
 
 from collections.abc import Iterable
@@ -77,7 +78,7 @@ class Variable:
     def __str__(self) -> str:
         if not self.has_domain:
             return f"Variable(name={self.name}, type=?, domain=?)"
-        if self.type == DataType.INT and len(self.domain) == (self.upper - self.lower + 1):  # type: ignore
+        if self.type == NumericPrimitiveType.INT and len(self.domain) == (self.upper - self.lower + 1):  # type: ignore
             domain_str = f"[{self.lower}..{self.upper}]"
         else:
             domain_str = str(self.domain)
@@ -329,7 +330,7 @@ class EntityClassValuations(dict[EntityClass, EntityValuations]):
 
     @property
     def has_observation_valuations(self) -> bool:
-        return self.has_values_for(EntityClass.OBSERVATION)
+        return self.has_values_for(EntityClass.OBSERVATIONS)
 
     @property
     def has_player_valuations(self) -> bool:
@@ -349,7 +350,7 @@ class EntityClassValuations(dict[EntityClass, EntityValuations]):
 
     @property
     def observation_valuations(self) -> EntityValuations:
-        return self.get_valuations_for(EntityClass.OBSERVATION)
+        return self.get_valuations_for(EntityClass.OBSERVATIONS)
 
     @property
     def player_valuations(self) -> EntityValuations:
@@ -365,7 +366,7 @@ class EntityClassValuations(dict[EntityClass, EntityValuations]):
         self.set_valuations_for(EntityClass.BRANCHES, values)
 
     def set_observation_valuations(self, values: EntityValuations):
-        self.set_valuations_for(EntityClass.OBSERVATION, values)
+        self.set_valuations_for(EntityClass.OBSERVATIONS, values)
 
     def set_player_valuations(self, values: EntityValuations):
         self.set_valuations_for(EntityClass.PLAYERS, values)
@@ -380,7 +381,7 @@ class EntityClassValuations(dict[EntityClass, EntityValuations]):
         self.unset_valuations_for(EntityClass.BRANCHES)
 
     def unset_observation_valuations(self):
-        self.unset_valuations_for(EntityClass.OBSERVATION)
+        self.unset_valuations_for(EntityClass.OBSERVATIONS)
 
     def unset_player_valuations(self):
         self.unset_valuations_for(EntityClass.PLAYERS)

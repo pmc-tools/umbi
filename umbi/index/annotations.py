@@ -58,14 +58,14 @@ class Annotation(JsonSchemaResult):
 
 
 class AnnotationMap(fields.Dict):
-    """Marshmallow field for a map from keys to AnnotationMap values."""
+    """Marshmallow field for a map from names to Annotation values."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(keys=fields.String(), values=fields.Nested(AnnotationSchema), *args, **kwargs)
 
 
-class AnnotationTypeToAnnotationMap(fields.Dict):
-    """Marshmallow field for a map from annotation category to a key-to-annotation map."""
+class AnnotationCategoryToAnnotationMap(fields.Dict):
+    """Marshmallow field for a map from annotation category to a name-to-annotation map."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(keys=fields.String(), values=AnnotationMap(), *args, **kwargs)

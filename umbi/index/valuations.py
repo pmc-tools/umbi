@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from marshmallow import fields, post_load, validate
 from marshmallow_oneofschema.one_of_schema import OneOfSchema
 
-import umbi.datatypes
+import umbi
 from .type import SizedTypeSchema
 
 from .json_schema import (

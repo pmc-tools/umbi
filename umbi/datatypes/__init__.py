@@ -9,7 +9,7 @@ including intervals, composite types, vector utilities, and JSON operations.
 from .atomic import AtomicType, Atomic, atomic_type_of
 
 # datatype.py
-from .datatype import DataType, ValueType, datatype_of, common_datatype
+from .datatype import DataType, ValueType, datatype_of, common_datatype, promote_value_to
 
 # interval.py
 from .interval import IntervalType, Interval, interval_base_type, base_to_interval_type
@@ -40,6 +40,7 @@ from .vector import (
     collection_element_types,
     collection_element_type,
     common_collection_element_type,
+    promote_vector_to,
 )
 
 # sized_type.py
@@ -91,6 +92,8 @@ __all__ = [
     "ValueType",
     "datatype_of",
     "common_datatype",
+    "promote_value_to",
+    "promote_vector_to",
     # interval.py
     "IntervalType",
     "Interval",

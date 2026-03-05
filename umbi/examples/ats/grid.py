@@ -9,7 +9,6 @@ import sys
 from fractions import Fraction
 
 import umbi
-import umbi.ats
 import logging
 
 logger = logging.getLogger(__name__)
@@ -80,9 +79,9 @@ def grid_ats_from_string(grid: str) -> umbi.ats.ExplicitAts:
     }
 
     ats.state_to_choice = []
-    ats.choice_to_branch = []
+    ats.choice_to_branches = []
     ats.branch_to_target = []
-    ats.branch_probabilities = []
+    ats.branch_to_probability = []
     ats.choice_to_choice_action = []
     ats.choice_action_to_name = list(direction_dxdy.keys())
     ats.num_choice_actions = len(ats.choice_action_to_name)
@@ -93,18 +92,18 @@ def grid_ats_from_string(grid: str) -> umbi.ats.ExplicitAts:
         for direction, (dx, dy) in direction_dxdy.items():
             target = (x + dx, y + dy)
             ats.choice_to_choice_action.append(ats.choice_action_to_name.index(direction))
-            ats.choice_to_branch.append(len(ats.branch_to_target))
+            ats.choice_to_branches.append(len(ats.branch_to_target))
 
             if target in cell_to_state:
                 target_state = cell_to_state[target]
                 ats.branch_to_target.extend([target_state, state])
-                ats.branch_probabilities.extend([Fraction(9, 10), Fraction(1, 10)])
+                ats.branch_to_probability.extend([Fraction(9, 10), Fraction(1, 10)])
             else:
                 ats.branch_to_target.append(state)
-                ats.branch_probabilities.append(1)
+                ats.branch_to_probability.append(1)
 
     ats.state_to_choice.append(len(ats.choice_to_choice_action))
-    ats.choice_to_branch.append(len(ats.branch_to_target))
+    ats.choice_to_branches.append(len(ats.branch_to_target))
     ats.num_choices = len(ats.choice_to_choice_action)
     ats.num_branches = len(ats.branch_to_target)
 

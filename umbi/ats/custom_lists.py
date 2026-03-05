@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class TypedIterable(Iterable[ValueType]):
-    """A list that can infer additional type information about its elements."""
+    """An iterable that can infer additional type information about its elements."""
 
     @property
     def types(self) -> set[DataType]:
@@ -22,7 +22,7 @@ class TypedIterable(Iterable[ValueType]):
     def type(self) -> DataType:
         """
         Infer the common data type of the values.
-        :raise ValueError: if the list is empty
+        :raise ValueError: if the iterable is empty
         :note: promotion rules: AtomicType.BOOL -> NumericType -> AtomicType.STRING
         """
         if len(self.types) == 0:
@@ -67,7 +67,7 @@ class Domain(set[ValueType], TypedIterable):
         try:
             self._sorted_domain = sorted(self)  # type: ignore
         except TypeError:
-            logger.warning("Domain values cannot be sorted.")
+            logger.warning("domain values cannot be sorted")
 
     @property
     def lower(self) -> ValueType:

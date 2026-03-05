@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 
 from marshmallow import fields
 
-from .annotations import AnnotationTypeToAnnotationMap, Annotation
+from .annotations import AnnotationCategoryToAnnotationMap, Annotation
 from .file_data import FileData, FileDataSchema
 from .json_schema import (
     JsonSchema,
@@ -23,10 +23,10 @@ class UmbIndexSchema(JsonSchema):
 
     format_version = FieldUint(data_key="format-version", required=True)
     format_revision = FieldUint(data_key="format-revision", required=True)
-    model_data = fields.Nested(ModelDataSchema, data_key="model-data", required=False)
     file_data = fields.Nested(FileDataSchema, data_key="file-data", required=False)
+    model_data = fields.Nested(ModelDataSchema, data_key="model-data", required=False)
     transition_system = fields.Nested(TransitionSystemSchema, data_key="transition-system", required=True)
-    annotations = AnnotationTypeToAnnotationMap(data_key="annotations", required=False)
+    annotations = AnnotationCategoryToAnnotationMap(data_key="annotations", required=False)
     valuations = ValuationsSchema(data_key="valuations", required=False)
 
     @classmethod
@@ -38,8 +38,8 @@ class UmbIndexSchema(JsonSchema):
 class UmbIndex(JsonSchemaResult):
     format_version: int = 0
     format_revision: int = 0
-    model_data: ModelData | None = None
     file_data: FileData | None = None
+    model_data: ModelData | None = None
     transition_system: TransitionSystem = field(default_factory=TransitionSystem)
     annotations: dict[str, dict[str, Annotation]] | None = None
     valuations: dict[str, ValuationDescription] | None = None

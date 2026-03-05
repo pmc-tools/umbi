@@ -4,7 +4,7 @@ Type schema and result classes for UMBI types.
 
 from marshmallow import fields, post_load, validate
 from .json_schema import JsonSchema
-import umbi.datatypes
+import umbi
 
 
 class FieldType(fields.String):

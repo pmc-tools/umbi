@@ -27,7 +27,7 @@ class Annotation:
     name: str
     alias: str | None = None
     description: str | None = None
-    entity_class_to_values: dict[EntityClass, EntityToValue] = field(default_factory=dict[EntityClass, EntityToValue])
+    _entity_class_to_values: dict[EntityClass, EntityToValue] = field(default_factory=dict[EntityClass, EntityToValue])
 
     @classmethod
     def entity_class_enabled(cls, entity_class: EntityClass) -> bool:
@@ -37,21 +37,21 @@ class Annotation:
     @property
     def mappings(self) -> dict[EntityClass, EntityToValue]:
         """Alias for entity_class_to_values."""
-        return self.entity_class_to_values
+        return self._entity_class_to_values
 
     @property
     def has_values(self) -> bool:
         """Check if the annotation has any values set."""
-        return len(self.entity_class_to_values) > 0
+        return len(self._entity_class_to_values) > 0
 
     @property
     def entity_classes(self) -> set[EntityClass]:
         """Get the set of entity classes for which this annotation has values."""
-        return set(self.entity_class_to_values.keys())
+        return set(self._entity_class_to_values.keys())
 
     def has_values_for(self, entity_class: EntityClass) -> bool:
         """Check if the annotation has values for the given entity class."""
-        return self.entity_class_to_values.get(entity_class) is not None
+        return self._entity_class_to_values.get(entity_class) is not None
 
     def get_values_for(self, entity_class: EntityClass) -> EntityToValue:
         """
@@ -60,7 +60,7 @@ class Annotation:
         """
         if not self.has_values_for(entity_class):
             raise KeyError(f"Annotation has no values for entity class {entity_class}")
-        return self.entity_class_to_values[entity_class]
+        return self._entity_class_to_values[entity_class]
 
     def set_values_for(self, entity_class: EntityClass, values: EntityToValue | list) -> None:
         """Set the values for the given entity class."""
@@ -68,13 +68,13 @@ class Annotation:
             raise ValueError(f"Entity class {entity_class} is not enabled for this annotation type")
         if isinstance(values, list):
             values = EntityToValue(values)
-        self.entity_class_to_values[entity_class] = values
+        self._entity_class_to_values[entity_class] = values
 
     def unset_values_for(self, entity_class: EntityClass) -> None:
         """Unset the values for the given entity class."""
         if not self.has_values_for(entity_class):
             raise KeyError(f"Annotation has no values for entity class {entity_class}")
-        del self.entity_class_to_values[entity_class]
+        del self._entity_class_to_values[entity_class]
 
     ### Convenience properties and methods for each entity class ###
     @property
@@ -91,7 +91,7 @@ class Annotation:
 
     @property
     def has_observation_values(self) -> bool:
-        return self.has_values_for(EntityClass.OBSERVATION)
+        return self.has_values_for(EntityClass.OBSERVATIONS)
 
     @property
     def has_player_values(self) -> bool:
@@ -111,7 +111,7 @@ class Annotation:
 
     @property
     def observation_values(self) -> EntityToValue:
-        return self.get_values_for(EntityClass.OBSERVATION)
+        return self.get_values_for(EntityClass.OBSERVATIONS)
 
     @property
     def player_values(self) -> EntityToValue:
@@ -127,7 +127,7 @@ class Annotation:
         self.set_values_for(EntityClass.BRANCHES, values)
 
     def set_observation_values(self, values: EntityToValue | list):
-        self.set_values_for(EntityClass.OBSERVATION, values)
+        self.set_values_for(EntityClass.OBSERVATIONS, values)
 
     def set_player_values(self, values: EntityToValue | list):
         self.set_values_for(EntityClass.PLAYERS, values)
@@ -142,7 +142,7 @@ class Annotation:
         self.unset_values_for(EntityClass.BRANCHES)
 
     def unset_observation_values(self):
-        self.unset_values_for(EntityClass.OBSERVATION)
+        self.unset_values_for(EntityClass.OBSERVATIONS)
 
     def unset_player_values(self):
         self.unset_values_for(EntityClass.PLAYERS)
@@ -154,14 +154,15 @@ class Annotation:
             self.name == other.name
             and self.alias == other.alias
             and self.description == other.description
-            and self.entity_class_to_values == other.entity_class_to_values
+            and self._entity_class_to_values == other._entity_class_to_values
         )
 
     @property
     def common_type(self) -> DataType:
         """Infer the data type of the annotation from its values."""
+        # TODO this is obsolete, get rid of type handling in this package
         types: set[DataType] = set()
-        for v in self.entity_class_to_values.values():
+        for v in self._entity_class_to_values.values():
             types.add(v.type)
         if len(types) == 0:
             raise ValueError("Annotation has no values to infer type from")

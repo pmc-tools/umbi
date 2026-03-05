@@ -46,8 +46,8 @@ pythonpath = ["."]
 umbi = "umbi.__main__:main"
 
 [tool.umbi]
-format_version = 0
-format_revision = 1
+format_version = 1
+format_revision = 0
 
 [tool.bumpversion]
 current_version = "0.2.0"

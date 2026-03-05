@@ -7,5 +7,5 @@ class EntityClass(str, Enum):
     STATES = "states"
     CHOICES = "choices"
     BRANCHES = "branches"
-    OBSERVATION = "observation"
+    OBSERVATIONS = "observations"
     PLAYERS = "players"

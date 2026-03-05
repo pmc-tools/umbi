@@ -1,7 +1,6 @@
 import logging
 
-import umbi.binary
-import umbi.datatypes
+import umbi
 from umbi.datatypes import (
     DataType,
     AtomicType,
@@ -25,14 +24,14 @@ class TarDecoder(TarReader):
         :param sized_type: type of the values in the file
         :param required: if True, raise an error if the file is not found
         """
-        data = self.read(filename, required)
+        data = self.read_file(filename, required)
         if data is None:
             return None
         return umbi.binary.bytes_to_vector(data, sized_type)
 
     @staticmethod
-    def truncate_bitvector(vector: list, num_entries: int) -> list:
-        """Truncate a bitvector if its length exceeds this num_entries."""
+    def truncate_bitvector(vector: list[bool], num_entries: int) -> list[bool]:
+        """Truncate a bitvector if its length exceeds num_entries."""
         if len(vector) > num_entries:
             if any(vector[num_entries:]):
                 logger.warning(
@@ -41,30 +40,30 @@ class TarDecoder(TarReader):
             vector = vector[:num_entries]
         return vector
 
-    def read_bitvector(self, filename: str, num_entries: int) -> list[bool]:
+    def read_bitvector(self, filename: str, num_entries: int | None) -> list[bool]:
         """Read a bitvector and truncate it to num_entries if necessary."""
         vector = self.read_vector(filename, BOOL1, required=True)
         assert isinstance(vector, list)
-        return self.truncate_bitvector(vector, num_entries)
+        if num_entries is not None:
+            vector = self.truncate_bitvector(vector, num_entries)
+        return vector
 
     def read_vector_with_csr(
         self, filename: str, value_type: DataType, required: bool, filename_csr: str
     ) -> list | None:
         """
-        Read a file containing a vector of values. Use an accompanying CSR file if needed.
+        Read a file containing a vector of values while using an accompanying CSR.
         :param filename: name of the main file to read
         :param value_type: value type
         :param required: if True, raise an error if the main file is not found
         :param filename_csr: name of the accompanying CSR file
-        :param required_csr: if True, raise an error if the CSR file is not found
         """
-        data = self.read(filename, required)
+        data = self.read_file(filename, required)
         if data is None:
             return None
-        chunk_ranges = self.read_vector(filename_csr, UINT64, required=True)
-        assert chunk_ranges is not None, "chunk_ranges must be prprovided"
-        assert isinstance(chunk_ranges, list)
-        chunk_ranges = umbi.datatypes.csr_to_ranges(chunk_ranges)
+        chunk_csr = self.read_vector(filename_csr, UINT64, required=True)
+        assert chunk_csr is not None
+        chunk_ranges = umbi.datatypes.csr_to_ranges(chunk_csr)
         return umbi.binary.bytes_with_csr_to_vector(data, value_type, chunk_ranges=chunk_ranges)
 
     def read_strings(self, filename: str, required: bool, filename_csr: str) -> list[str] | None:
@@ -78,66 +77,72 @@ class TarDecoder(TarReader):
 
 
 class TarEncoder(TarWriter):
-    def add_vector(
-        self,
-        filename: str,
-        sized_type: SizedType,
-        data: list | None,
-        required: bool = False,
-        pad_bitvector_to_8_bytes: bool = True,
-    ):
+    def add_vector(self, filename: str, sized_type: SizedType, vector: list | None, required: bool = False):
         """
-        Write a file containing a vector of values.
-        :param filename: name of the file to write
+        Add a file containing a vector of values.
+        :param filename: name of the file to add
         :param sized_type: type of the values
-        :param data: vector data to write
-        :param required: if True, raise an error if data is None
-        :param pad_bitvector_to_8_bytes: if True and writing a bitvector, pad to a multiple of 8 bytes
+        :param vector: vector to add
+        :param required: whether the file is required
+        :raise ValueError: if required is True and vector is None
         """
-        if data is None:
+        if vector is None:
             if required:
                 raise ValueError(f"missing required data for {filename}")
             return
-        if sized_type.type == AtomicType.BOOL and pad_bitvector_to_8_bytes:
-            items_to_add = (64 - (len(data) % 64)) % 64
-            if items_to_add > 0:
-                logger.debug(
-                    f"padding bitvector {filename} with {items_to_add} False entries to align to an 8-byte boundary"
-                )
-                data = data + [False] * items_to_add
-        data_out = umbi.binary.vector_to_bytes(data, sized_type)
-        self.add(filename, data_out)
+        data_out = umbi.binary.vector_to_bytes(vector, sized_type)
+        self.add_file(filename, data_out)
 
-    def add_bitvector(self, filename: str, data: list[bool], required: bool = False):
-        """Write a bitvector."""
-        self.add_vector(filename, BOOL1, data, required)
+    @staticmethod
+    def pad_bitvector(vector: list[bool], num_bytes: int) -> list[bool]:
+        """Pad a bitvector with False entries to make its length a multiple of num_bytes*8."""
+        num_bits = num_bytes * 8
+        items_to_add = (num_bits - (len(vector) % num_bits)) % num_bits
+        if items_to_add > 0:
+            # logger.debug(
+            #     f"padding bitvector with {items_to_add} False entries to align to a {num_bytes}-byte boundary"
+            # )
+            vector = vector + [False] * items_to_add
+        return vector
+
+    def add_bitvector(self, filename: str, vector: list[bool], required: bool = False, pad_to_8_bytes: bool = True):
+        """
+        Add a bitvector file.
+        :param filename: name of the file to add
+        :param vector: bitvector data to write
+        :param required: if True, raise an error if vector is None
+        :param pad_to_8_bytes: if True, pad the bitvector to a multiple of 8 bytes
+        """
+        if vector is not None and pad_to_8_bytes:
+            vector = self.pad_bitvector(vector, 8)
+        self.add_vector(filename, BOOL1, vector, required)
 
     def add_vector_with_csr(
-        self, filename: str, sized_type: SizedType, data: list | None, filename_csr: str, required: bool = False
+        self, filename: str, sized_type: SizedType, vector: list | None, filename_csr: str, required: bool = False
     ):
         """
-        Write a file containing a vector of values, with an accompanying CSR file if needed.
-        :param filename: name of the main file to write
+        Add a file containing a vector of values, with an accompanying CSR file if needed.
+        :param filename: name of the main file to add
         :param sized_type: value type
-        :param data: vector data to write
+        :param vector: vector data to write
         :param filename_csr: name of the accompanying CSR file
-        :param required: if True, raise an error if data is None
+        :param required: if True, raise an error if vector is None
         """
-        if data is None:
+        if vector is None:
             if required:
                 raise ValueError(f"missing required data for {filename}")
             return
-        data_out, chunk_csr = umbi.binary.vector_to_bytes_with_csr(data, sized_type)
-        self.add(filename, data_out)
+        data_out, chunk_csr = umbi.binary.vector_to_bytes_with_csr(vector, sized_type)
+        self.add_file(filename, data_out)
         if chunk_csr is not None:
             self.add_vector(filename_csr, UINT64, chunk_csr, required=True)
 
-    def add_strings(self, filename: str, data: list[str] | None, filename_csr: str, required: bool = False):
+    def add_strings(self, filename: str, vector: list[str] | None, filename_csr: str, required: bool = False):
         """
-        Write a file containing a vector of strings, using an accompanying CSR file.
-        :param filename: name of the main file to write
-        :param data: list of strings to write
+        Add a file containing a vector of strings, using an accompanying CSR file.
+        :param filename: name of the main file to add
+        :param vector: list of strings to add
         :param filename_csr: name of the accompanying CSR file
-        :param required: if True, raise an error if data is None
+        :param required: if True, raise an error if vector is None
         """
-        self.add_vector_with_csr(filename, SizedType(AtomicType.STRING), data, filename_csr, required)
+        self.add_vector_with_csr(filename, SizedType(AtomicType.STRING), vector, filename_csr, required)

@@ -71,6 +71,11 @@ class StructType:
             item.validate()
 
     @property
+    def attributes(self):
+        """Iterate over attributes only, skipping padding fields."""
+        return [f for f in self.fields if isinstance(f, StructAttribute)]
+
+    @property
     def size_bits(self) -> int:
         return sum(f.size_bits for f in self.fields)
 

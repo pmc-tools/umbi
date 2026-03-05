@@ -11,7 +11,6 @@ import random
 import time
 
 import umbi
-import umbi.ats
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +99,7 @@ def random_transition_function(
     action_counter = 0
 
     # forward procedure: ensure connectivity from initial state
-    logger.info("Starting forward procedure")
+    logger.info("starting forward procedure ...")
     forward_start = time.time()
     for i in range(1, num_states):
         s = state_order[i]
@@ -140,10 +139,10 @@ def random_transition_function(
         actions_at_state[sp].append(action)
 
     forward_time = time.time() - forward_start
-    logger.info(f"Forward procedure completed in {forward_time:.3f}s")
+    logger.info(f"forward procedure completed in {forward_time:.3f}s")
 
     # backward procedure: add as many actions as possible
-    logger.info("Starting backward procedure")
+    logger.info("starting backward procedure ...")
     backward_start = time.time()
     for i in range(num_states - 1, -1, -1):
         s = state_order[i]
@@ -172,7 +171,7 @@ def random_transition_function(
             actions_at_state[s].append(action)
 
     backward_time = time.time() - backward_start
-    logger.info(f"Backward procedure completed in {backward_time:.3f}s")
+    logger.info(f"backward procedure completed in {backward_time:.3f}s")
 
     return delta, actions_at_state, all_actions
 
@@ -215,20 +214,20 @@ def random_game_ats(num_states: int, seed: int | None = None) -> umbi.ats.Explic
     )
 
     # build CSR structures
-    logger.info("Building CSR structures")
+    logger.info("building CSR structures ...")
     build_start = time.time()
     ats.state_to_choice = []
     ats.choice_to_choice_action = []
-    ats.choice_to_branch = []
+    ats.choice_to_branches = []
     ats.branch_to_target = []
-    ats.branch_probabilities = []
+    ats.branch_to_probability = []
 
     for s in range(num_states):
         ats.state_to_choice.append(len(ats.choice_to_choice_action))
 
         for action in sorted(actions_at_state[s]):
             ats.choice_to_choice_action.append(action)
-            ats.choice_to_branch.append(len(ats.branch_to_target))
+            ats.choice_to_branches.append(len(ats.branch_to_target))
 
             # get all branches for this (s, action) pair
             branches = delta[s][action]
@@ -236,15 +235,15 @@ def random_game_ats(num_states: int, seed: int | None = None) -> umbi.ats.Explic
 
             for target, prob in branches:
                 ats.branch_to_target.append(target)
-                ats.branch_probabilities.append(prob)
+                ats.branch_to_probability.append(prob)
 
     ats.state_to_choice.append(len(ats.choice_to_choice_action))
-    ats.choice_to_branch.append(len(ats.branch_to_target))
+    ats.choice_to_branches.append(len(ats.branch_to_target))
 
     build_time = time.time() - build_start
     logger.info(f"CSR building completed in {build_time:.3f}s")
-    logger.info(f"Generated random game: {num_states} states, {ats.num_choices} choices, {ats.num_branches} branches")
-    logger.info(f"Player0 states: {sum(is_player0_state)}, Player1 states: {num_states - sum(is_player0_state)}")
+    logger.info(f"generated random game: {num_states} states, {ats.num_choices} choices, {ats.num_branches} branches")
+    logger.info(f"player0 states: {sum(is_player0_state)}, player1 states: {num_states - sum(is_player0_state)}")
 
     return ats
 
