@@ -1,14 +1,21 @@
 import pathlib
 import time
 
-import umbi
+import umbi.umb
+import umbi.umb.index
+import umbi.ats
+import umbi.datatypes
+import umbi.version
 
-from .umb import ExplicitUmb, read_umb, write_umb
+from umbi.umb import ExplicitUmb
+from umbi.datatypes import SizedType
+
+from .umb import read_umb, write_umb
 
 
-def umbi_file_data() -> umbi.index.FileData:
+def umbi_file_data() -> umbi.umb.index.FileData:
     """Generate UMB file data for use in umb files created by umbi."""
-    return umbi.index.FileData(
+    return umbi.umb.index.FileData(
         tool=umbi.version.__toolname__,
         tool_version=umbi.version.__version__,
         creation_date=int(time.time()),
@@ -18,13 +25,13 @@ def umbi_file_data() -> umbi.index.FileData:
 
 def explicit_umb_to_explicit_ats(umb: ExplicitUmb) -> umbi.ats.ExplicitAts:
     umb.validate()
-    explicit_ats = umbi.ats.ExplicitAts()
+    ats = umbi.ats.ExplicitAts()
 
     ## index
     # skip format_version, format_revision and file_data
     md = umb.index.model_data
     if md is not None:
-        explicit_ats.model_info = umbi.ats.ModelInfo(
+        ats.model_info = umbi.ats.ModelInfo(
             name=md.name,
             version=md.version,
             authors=md.authors,
@@ -35,32 +42,32 @@ def explicit_umb_to_explicit_ats(umb: ExplicitUmb) -> umbi.ats.ExplicitAts:
         )
     # load index.transition_system
     ts = umb.index.transition_system
-    explicit_ats.time = umbi.ats.TimeType(ts.time)
-    explicit_ats.num_players = ts.num_players
-    explicit_ats.num_states = ts.num_states
-    explicit_ats.num_initial_states = ts.num_initial_states
-    explicit_ats.num_choices = ts.num_choices
-    explicit_ats.num_choice_actions = ts.num_choice_actions
-    explicit_ats.num_branches = ts.num_branches
-    explicit_ats.num_branch_actions = ts.num_branch_actions
-    explicit_ats.player_to_name = ts.player_names
+    ats.time = umbi.ats.TimeType(ts.time)
+    ats.num_players = ts.num_players
+    ats.num_states = ts.num_states
+    ats.num_initial_states = ts.num_initial_states
+    ats.num_choices = ts.num_choices
+    ats.num_choice_actions = ts.num_choice_actions
+    ats.num_branches = ts.num_branches
+    ats.num_branch_actions = ts.num_branch_actions
+    ats.player_to_name = ts.player_names
 
     ## values
-    explicit_ats.state_is_initial = umb.state_is_initial
-    explicit_ats.state_to_choice = umb.state_to_choices
-    explicit_ats.state_to_player = umb.state_to_player
+    ats.state_is_initial = umb.state_is_initial
+    ats.state_to_choice = umb.state_to_choices
+    ats.state_to_player = umb.state_to_player
 
-    explicit_ats.state_is_markovian = umb.state_is_markovian
-    explicit_ats.state_to_exit_rate = umb.state_to_exit_rate
+    ats.state_is_markovian = umb.state_is_markovian
+    ats.state_to_exit_rate = umb.state_to_exit_rate
 
-    explicit_ats.choice_to_branches = umb.choice_to_branches
-    explicit_ats.branch_to_target = umb.branch_to_target
-    explicit_ats.branch_to_probability = umb.branch_to_probability
+    ats.choice_to_branches = umb.choice_to_branches
+    ats.branch_to_target = umb.branch_to_target
+    ats.branch_to_probability = umb.branch_to_probability
 
-    explicit_ats.choice_to_choice_action = umb.choice_to_choice_action
-    explicit_ats.choice_action_to_name = umb.choice_action_to_string
-    explicit_ats.branch_to_branch_action = umb.branch_to_branch_action
-    explicit_ats.branch_action_to_name = umb.branch_action_to_string
+    ats.choice_to_choice_action = umb.choice_to_choice_action
+    ats.choice_action_to_name = umb.choice_action_to_string
+    ats.branch_to_branch_action = umb.branch_to_branch_action
+    ats.branch_action_to_name = umb.branch_action_to_string
 
     # load annotations
     if umb.index.annotations is not None:
@@ -80,13 +87,13 @@ def explicit_umb_to_explicit_ats(umb: ExplicitUmb) -> umbi.ats.ExplicitAts:
                     values = umb.annotations[category][name][applies_to]
                     entity_class = umbi.ats.EntityClass(applies_to)
                     ats_annotation.set_values_for(entity_class, values)
-                explicit_ats.annotations[category] = dict[str, umbi.ats.Annotation]()
-                explicit_ats.annotations[category][name] = ats_annotation
+                ats.annotations[category] = dict[str, umbi.ats.Annotation]()
+                ats.annotations[category][name] = ats_annotation
 
     # load valuations
     if umb.index.valuations is not None:
         assert umb.valuations is not None
-        explicit_ats.variable_valuations = umbi.ats.EntityClassValuations()
+        ats.variable_valuations = umbi.ats.EntityClassValuations()
         for applies_to, valuation_description in umb.index.valuations.items():
             # ignore unique and num_strings
             # assume a single valuation class
@@ -106,18 +113,18 @@ def explicit_umb_to_explicit_ats(umb: ExplicitUmb) -> umbi.ats.ExplicitAts:
             for entity, valuation in enumerate(entity_to_valuation):
                 valuation = {entity_valuations.get_variable(var_name): value for var_name, value in valuation.items()}
                 entity_valuations.set_entity_valuation(entity, valuation)
-            explicit_ats.variable_valuations.set_valuations_for(entity_class, entity_valuations)
+            ats.variable_valuations.set_valuations_for(entity_class, entity_valuations)
 
     # load observations
     if ts.observations_apply_to is not None:
         assert ts.num_observations > 0
         assert umb.entity_to_observation is not None
-        explicit_ats.observation_annotation = umbi.ats.ObservationAnnotation(num_observations=ts.num_observations)
+        ats.observation_annotation = umbi.ats.ObservationAnnotation(num_observations=ts.num_observations)
         entity_class = umbi.ats.EntityClass(ts.observations_apply_to)
-        explicit_ats.observation_annotation.set_values_for(entity_class, umb.entity_to_observation)
+        ats.observation_annotation.set_values_for(entity_class, umb.entity_to_observation)
 
-    explicit_ats.validate()
-    return explicit_ats
+    ats.validate()
+    return ats
 
 
 def explicit_ats_to_explicit_umb(ats: umbi.ats.ExplicitAts) -> ExplicitUmb:
@@ -126,14 +133,14 @@ def explicit_ats_to_explicit_umb(ats: umbi.ats.ExplicitAts) -> ExplicitUmb:
 
     ## index
 
-    umb.index = umbi.index.UmbIndex(
+    umb.index = umbi.umb.index.UmbIndex(
         # insert our format_version, format_revision, file data
         format_version=umbi.version.__format_version__,
         format_revision=umbi.version.__format_revision__,
         file_data=umbi_file_data(),
         # add model data
         model_data=(
-            umbi.index.ModelData(
+            umbi.umb.index.ModelData(
                 name=ats.model_info.name,
                 version=ats.model_info.version,
                 authors=ats.model_info.authors,
@@ -145,7 +152,7 @@ def explicit_ats_to_explicit_umb(ats: umbi.ats.ExplicitAts) -> ExplicitUmb:
             if ats.model_info is not None
             else None
         ),
-        transition_system=umbi.index.TransitionSystem(
+        transition_system=umbi.umb.index.TransitionSystem(
             time=ats.time.value,
             num_players=ats.num_players,
             num_states=ats.num_states,
@@ -179,10 +186,10 @@ def explicit_ats_to_explicit_umb(ats: umbi.ats.ExplicitAts) -> ExplicitUmb:
         target_type = umbi.datatypes.common_collection_element_type(ats.state_to_exit_rate)
         assert isinstance(target_type, umbi.datatypes.NumericType), "exit rates must be numeric"
         # do we need to promote ints?
-        # if target_type == umbi.datatypes.NumericPrimitiveType.INT:
+        # if target_type == NumericPrimitiveType.INT:
         #     # implicit promotion of int to double
-        #     target_type = umbi.datatypes.NumericPrimitiveType.DOUBLE
-        umb.index.transition_system.exit_rate_type = umbi.datatypes.SizedType(type=target_type)
+        #     target_type = NumericPrimitiveType.DOUBLE
+        umb.index.transition_system.exit_rate_type = SizedType(type=target_type)
         umb.state_to_exit_rate = umbi.datatypes.promote_vector_to(ats.state_to_exit_rate, target_type)  # type: ignore
 
     umb.choice_to_branches = ats.choice_to_branches
@@ -192,7 +199,7 @@ def explicit_ats_to_explicit_umb(ats: umbi.ats.ExplicitAts) -> ExplicitUmb:
         # promote
         target_type = umbi.datatypes.common_collection_element_type(ats.branch_to_probability)
         assert isinstance(target_type, umbi.datatypes.NumericType), "branch probabilities must be numeric"
-        umb.index.transition_system.branch_probability_type = umbi.datatypes.SizedType(type=target_type)
+        umb.index.transition_system.branch_probability_type = SizedType(type=target_type)
         umb.branch_to_probability = umbi.datatypes.promote_vector_to(ats.branch_to_probability, target_type)  # type: ignore
 
     umb.choice_to_choice_action = ats.choice_to_choice_action
@@ -206,20 +213,16 @@ def explicit_ats_to_explicit_umb(ats: umbi.ats.ExplicitAts) -> ExplicitUmb:
     for category, name_to_annotation in ats.annotations.items():
         if len(name_to_annotation) == 0:
             continue
-        umb.index.annotations[category] = dict[str, umbi.index.Annotation]()
+        umb.index.annotations[category] = dict[str, umbi.umb.index.AnnotationDescription]()
         umb.annotations[category] = dict[str, dict[str, list]]()
         for name, ats_annotation in name_to_annotation.items():
             # determine common type of values for this annotation
-            types = {
-                umbi.datatypes.common_collection_element_type(values)
-                for values in ats_annotation._entity_class_to_values.values()
-            }
-            target_type = umbi.datatypes.common_datatype(types)
-            umb_annotation = umbi.index.Annotation(
+            target_type = ats_annotation.get_common_type()
+            umb_annotation = umbi.umb.index.AnnotationDescription(
                 alias=ats_annotation.alias,
                 description=ats_annotation.description,
                 applies_to=[entity_class.value for entity_class in ats_annotation.entity_classes],  # type: ignore
-                type=umbi.datatypes.SizedType(type=target_type),
+                type=SizedType(type=target_type),
                 lower=None,  # TODO add later
                 upper=None,  # TODO add later
             )
@@ -240,10 +243,10 @@ def explicit_ats_to_explicit_umb(ats: umbi.ats.ExplicitAts) -> ExplicitUmb:
             for var in entity_valuations.variables:
                 valuation_class.add_attribute(
                     name=var.name,
-                    sized_type=umbi.datatypes.SizedType(type=var.type),  # TODO deduce non-default size from the values
+                    sized_type=SizedType(type=var.type),  # TODO deduce non-default size from the values
                 )
             valuation_class.pad_to_byte()
-            valuation_description = umbi.index.ValuationDescription(
+            valuation_description = umbi.umb.index.ValuationDescription(
                 unique=False,  # TODO add later
                 num_strings=None,  # TODO add later
                 classes=[valuation_class],

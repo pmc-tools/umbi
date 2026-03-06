@@ -4,7 +4,7 @@ Utilities for packing and unpacking composite datatypes (structs).
 
 from bitstring import BitArray
 
-from umbi.datatypes import StructType, StructAttribute, StructPadding, AtomicType, ValueType, UINT64
+from umbi.datatypes import StructType, StructAttribute, StructPadding, PrimitiveType, Scalar, UINT64
 from .common import bits_to_value, value_to_bits
 from .utils import split_bytes
 
@@ -12,7 +12,7 @@ from .utils import split_bytes
 class StructUnpacker:
     """Utility class for unpacking composite datatypes from a bytestring."""
 
-    def __init__(self, bytestring: bytes):
+    def __init__(self, bytestring: bytes) -> None:
         self.bytestring = bytestring  # input bytestring, little-endian order
         self.buffer = BitArray()  # bit buffer, MSB at [0]
 
@@ -41,13 +41,13 @@ class StructUnpacker:
     def skip_padding(self, field: StructPadding):
         self.extract_from_buffer(field.padding)
 
-    def unpack_attribute(self, field: StructAttribute) -> ValueType | None:
+    def unpack_attribute(self, field: StructAttribute) -> Scalar | None:
         """
         Unpack a single field from the buffer.
         :return: the unpacked value, or None if the field is optional and not present
         """
         sized_type = field.sized_type
-        if field.sized_type.type == AtomicType.STRING:
+        if field.sized_type.type == PrimitiveType.STRING:
             # a string is stored as an index to the list of strings
             sized_type = UINT64
         bits = self.extract_from_buffer(sized_type.size_bits)
@@ -58,7 +58,7 @@ class StructUnpacker:
                 return None
         return bits_to_value(bits, sized_type.type)
 
-    def unpack_struct(self, value_type: StructType) -> dict[str, ValueType | None]:
+    def unpack_struct(self, value_type: StructType) -> dict[str, Scalar | None]:
         name_value = dict()
         for field in value_type:
             if isinstance(field, StructPadding):
@@ -72,7 +72,7 @@ class StructUnpacker:
 class StructPacker:
     """Utility class for packing structs into a bytestring."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.buffer = BitArray()  # bit buffer, MSB at [0]
         self.bytestring = bytes()  # output bytestring, little-endian order
 
@@ -99,10 +99,10 @@ class StructPacker:
         """Add padding bits to the buffer."""
         self.append_to_buffer(BitArray(uint=0, length=field.padding))
 
-    def pack_attribute(self, field: StructAttribute, value: ValueType | None):
+    def pack_attribute(self, field: StructAttribute, value: Scalar | None):
         """Pack a single attribute into the buffer or the bytestring."""
         sized_type = field.sized_type
-        if field.sized_type.type == AtomicType.STRING:
+        if field.sized_type.type == PrimitiveType.STRING:
             # a string is stored as an index to the list of strings
             sized_type = UINT64
         bits = None
@@ -123,7 +123,7 @@ class StructPacker:
                 return None
         self.append_to_buffer(bits)
 
-    def pack_struct(self, value_sized_type: StructType, values: dict[str, ValueType | None]) -> bytes:
+    def pack_struct(self, value_sized_type: StructType, values: dict[str, Scalar | None]) -> bytes:
         assert value_sized_type.is_byte_aligned, "cannot pack a struct that is not byte-aligned"
         for field in value_sized_type:
             if isinstance(field, StructPadding):
@@ -135,11 +135,11 @@ class StructPacker:
         return self.bytestring
 
 
-def struct_unpack(bytestring: bytes, value_type: StructType) -> dict[str, ValueType | None]:
+def struct_unpack(bytestring: bytes, value_type: StructType) -> dict[str, Scalar | None]:
     """Unpack a BitArray to a composite datatype."""
     return StructUnpacker(bytestring).unpack_struct(value_type)
 
 
-def struct_pack(values: dict[str, ValueType | None], value_type: StructType) -> bytes:
+def struct_pack(values: dict[str, Scalar | None], value_type: StructType) -> bytes:
     """Convert a composite datatype to a BitArray."""
     return StructPacker().pack_struct(value_type, values)

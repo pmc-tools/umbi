@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 
 from .interval import IntervalType
 from .sized_type import SizedType
-from .atomic import AtomicType
+from .primitive import PrimitiveType
 
 
 @dataclass
@@ -92,7 +92,7 @@ class StructType:
 
     @property
     def contains_strings(self) -> bool:
-        return any(isinstance(f, StructAttribute) and f.sized_type.type == AtomicType.STRING for f in self.fields)
+        return any(isinstance(f, StructAttribute) and f.sized_type.type == PrimitiveType.STRING for f in self.fields)
 
     def __str__(self) -> str:
         lines = ["struct:"]

@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 
 from marshmallow import fields
 
-from .annotations import AnnotationCategoryToAnnotationMap, Annotation
+from .annotations import AnnotationCategoryToAnnotationMap, AnnotationDescription
 from .file_data import FileData, FileDataSchema
 from .json_schema import (
     JsonSchema,
@@ -41,7 +41,7 @@ class UmbIndex(JsonSchemaResult):
     file_data: FileData | None = None
     model_data: ModelData | None = None
     transition_system: TransitionSystem = field(default_factory=TransitionSystem)
-    annotations: dict[str, dict[str, Annotation]] | None = None
+    annotations: dict[str, dict[str, AnnotationDescription]] | None = None
     valuations: dict[str, ValuationDescription] | None = None
 
     @classmethod

@@ -7,4 +7,10 @@ repos:
       args: [ "--fix" ]
     # formatter
     - id: ruff-format
-  
+  - repo: local
+    hooks:
+      - id: pyright
+        name: pyright (venv)
+        entry: pyright --project=.
+        language: system
+        pass_filenames: false

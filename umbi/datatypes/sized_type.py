@@ -1,14 +1,14 @@
 from dataclasses import dataclass
-from .atomic import AtomicType
+from .primitive import PrimitiveType
 from .numeric_primitive import NumericPrimitiveType
 from .interval import IntervalType
-from .datatype import DataType
+from .scalar import ScalarType
 
 
-def atomic_type_default_size(type: AtomicType) -> int:
+def atomic_type_default_size(type: PrimitiveType) -> int:
     return {
-        AtomicType.BOOL: 1,
-        AtomicType.STRING: 64,
+        PrimitiveType.BOOL: 1,
+        PrimitiveType.STRING: 64,
     }[type]
 
 
@@ -30,8 +30,8 @@ def interval_type_default_size(type: IntervalType) -> int:
     }[type]
 
 
-def type_default_size(type: DataType) -> int:
-    if isinstance(type, AtomicType):
+def type_default_size(type: ScalarType) -> int:
+    if isinstance(type, PrimitiveType):
         return atomic_type_default_size(type)
     elif isinstance(type, NumericPrimitiveType):
         return numeric_primitive_type_default_size(type)
@@ -39,8 +39,8 @@ def type_default_size(type: DataType) -> int:
         return interval_type_default_size(type)
 
 
-def validate_atomic_type_size(type: AtomicType, size: int) -> None:
-    if type == AtomicType.STRING:
+def validate_atomic_type_size(type: PrimitiveType, size: int) -> None:
+    if type == PrimitiveType.STRING:
         if size != 64:
             raise ValueError(f"{type.value} size must be 64")
 
@@ -62,8 +62,8 @@ def validate_interval_type_size(type: IntervalType, size: int) -> None:
             raise ValueError(f"{type.value} size must be a multiple of 4")
 
 
-def validate_type_size(type: DataType, size: int) -> None:
-    if isinstance(type, AtomicType):
+def validate_type_size(type: ScalarType, size: int) -> None:
+    if isinstance(type, PrimitiveType):
         validate_atomic_type_size(type, size)
     elif isinstance(type, NumericPrimitiveType):
         validate_numeric_primitive_type_size(type, size)
@@ -77,10 +77,10 @@ class SizedType:
     Represents a type definition for common types.
     """
 
-    type: DataType
+    type: ScalarType
     size_bits: int  # size in bits
 
-    def __init__(self, type: DataType, size_bits: int | None = None):
+    def __init__(self, type: ScalarType, size_bits: int | None = None) -> None:
         self.type = type
         if size_bits is None:
             size_bits = type_default_size(type)
@@ -103,7 +103,7 @@ class SizedType:
 
 
 # Common sized types used in umbi
-BOOL1 = SizedType(AtomicType.BOOL, 1)
+BOOL1 = SizedType(PrimitiveType.BOOL, 1)
 UINT16 = SizedType(NumericPrimitiveType.UINT, 16)
 UINT32 = SizedType(NumericPrimitiveType.UINT, 32)
 UINT64 = SizedType(NumericPrimitiveType.UINT, 64)

@@ -35,7 +35,7 @@ class TarReader:
         logger.debug("tarfile successfully loaded")
         return filename_data
 
-    def __init__(self, tarpath: str | pathlib.Path):
+    def __init__(self, tarpath: str | pathlib.Path) -> None:
         self.tarpath = tarpath
         self.filename_bytes = TarReader.tar_read(tarpath)
 
@@ -93,7 +93,7 @@ class TarWriter:
                 tar.addfile(tar_info, std_io.BytesIO(data))
         logger.debug("successfully wrote the tarfile")
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.filename_bytes = {}
 
     @property

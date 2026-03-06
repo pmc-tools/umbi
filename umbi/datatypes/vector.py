@@ -4,9 +4,8 @@ Auxiliary vector operations.
 
 from dataclasses import dataclass
 
-from .datatype import DataType, ValueType, common_datatype, datatype_of, promote_value_to
-from .sized_type import SizedType, UINT64
-from .atomic import AtomicType
+from .scalar import ScalarType, Scalar, common_scalar_type, scalar_type_of, promote_scalar_to
+from .sized_type import SizedType, BOOL1, UINT64
 
 from collections.abc import Iterable
 
@@ -19,11 +18,11 @@ class VectorType:
     type: SizedType
 
 
+"""Alias for a vector of booleans."""
+BIT_VECTOR = VectorType(BOOL1)
+
 """Alias for a CSR vector type."""
 CSR_VECTOR = VectorType(UINT64)
-
-"""Alias for a vector of booleans."""
-BIT_VECTOR = VectorType(SizedType(AtomicType.BOOL))
 
 
 def assert_is_list(vector: object):
@@ -75,12 +74,12 @@ def ranges_to_csr(ranges: list[tuple[int, int]]) -> list[int]:
     return csr
 
 
-def collection_element_types(collection: Iterable[ValueType]) -> set[DataType]:
+def collection_element_types(collection: Iterable[Scalar]) -> set[ScalarType]:
     """Determine the set of common types of elements in the collection."""
-    return set([datatype_of(x) for x in collection])
+    return set([scalar_type_of(x) for x in collection])
 
 
-def collection_element_type(collection: Iterable[ValueType]) -> DataType:
+def collection_element_type(collection: Iterable[Scalar]) -> ScalarType:
     """Determine the common type of elements in the collection. Raises an error if multiple types are found."""
     types = collection_element_types(collection)
     if len(types) != 1:
@@ -88,11 +87,11 @@ def collection_element_type(collection: Iterable[ValueType]) -> DataType:
     return types.pop()
 
 
-def common_collection_element_type(collection: Iterable[ValueType]) -> DataType:
+def common_collection_element_type(collection: Iterable[Scalar]) -> ScalarType:
     """Determine the common type to which all elements in the collection can be promoted."""
-    return common_datatype(collection_element_types(collection))
+    return common_scalar_type(collection_element_types(collection))
 
 
-def promote_vector_to(vector: list[ValueType], target_type: DataType) -> list[ValueType]:
+def promote_vector_to(vector: list[Scalar], target_type: ScalarType) -> list[Scalar]:
     """Promote a vector of values to the target type."""
-    return [promote_value_to(v, target_type) for v in vector]
+    return [promote_scalar_to(v, target_type) for v in vector]

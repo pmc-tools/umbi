@@ -1,8 +1,8 @@
 """
-umbi.index: handling the .umb index json file.
+umbi.umb.index: handling the .umb index json file.
 """
 
-from .annotations import Annotation
+from .annotations import AnnotationDescription
 from .file_data import FileData
 from .model_data import ModelData
 from .transition_system import TransitionSystem
@@ -12,7 +12,7 @@ from .valuations import ValuationDescription
 __all__ = [
     "ModelData",
     "FileData",
-    "Annotation",
+    "AnnotationDescription",
     "TransitionSystem",
     "UmbIndex",
     "ValuationDescription",

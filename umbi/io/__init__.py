@@ -2,15 +2,14 @@
 umbi.io: Utilities for binary and JSON serialization, and tar archive handling.
 """
 
-from .umb import ExplicitUmb, read_umb, write_umb
-from .umb_ats_converter import read_ats, write_ats, explicit_umb_to_explicit_ats, explicit_ats_to_explicit_umb
+from .umb import read_umb, write_umb
+from .umb_ats_converter import explicit_umb_to_explicit_ats, explicit_ats_to_explicit_umb, read_ats, write_ats
 
 __all__ = [
-    "ExplicitUmb",
     "read_umb",
     "write_umb",
-    "read_ats",
-    "write_ats",
     "explicit_umb_to_explicit_ats",
     "explicit_ats_to_explicit_umb",
+    "read_ats",
+    "write_ats",
 ]

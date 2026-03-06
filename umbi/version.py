@@ -2,9 +2,12 @@
 
 import os
 import tomllib
+from typing import TypeVar
+
+T = TypeVar("T")
 
 
-def get_pyproject_attribute(attribute, default, section="project"):
+def get_pyproject_attribute(attribute: str, default: T, section: str = "project") -> T:
     """Read an attribute from pyproject.toml."""
     pyproject_path = os.path.join(os.path.dirname(__file__), "..", "pyproject.toml")
     try:

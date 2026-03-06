@@ -3,7 +3,7 @@ Annotation schemas and classes.
 """
 
 from dataclasses import dataclass
-from typing import Literal, Type
+from typing import Any, Literal, Type
 
 from marshmallow import fields, validate
 
@@ -36,11 +36,11 @@ class AnnotationSchema(JsonSchema):
 
     @classmethod
     def schema_class(cls) -> Type:
-        return Annotation
+        return AnnotationDescription
 
 
 @dataclass
-class Annotation(JsonSchemaResult):
+class AnnotationDescription(JsonSchemaResult):
     """Annotation data class."""
 
     alias: str | None = None
@@ -58,14 +58,14 @@ class Annotation(JsonSchemaResult):
 
 
 class AnnotationMap(fields.Dict):
-    """Marshmallow field for a map from names to Annotation values."""
+    """Marshmallow field for a map from names to AnnotationDescription values."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(keys=fields.String(), values=fields.Nested(AnnotationSchema), *args, **kwargs)
 
 
 class AnnotationCategoryToAnnotationMap(fields.Dict):
     """Marshmallow field for a map from annotation category to a name-to-annotation map."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(keys=fields.String(), values=AnnotationMap(), *args, **kwargs)

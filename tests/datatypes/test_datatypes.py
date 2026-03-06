@@ -1,9 +1,9 @@
 import pytest
 from umbi.datatypes import (
-    AtomicType,
-    atomic_type_of,
-    datatype_of,
-    common_datatype,
+    PrimitiveType,
+    primitive_type_of,
+    scalar_type_of,
+    common_scalar_type,
     NumericPrimitiveType,
     IntervalType,
     interval_base_type,
@@ -27,23 +27,23 @@ from umbi.datatypes import (
 
 
 def test_atomic_type_of_bool():
-    assert atomic_type_of(True) == AtomicType.BOOL
+    assert primitive_type_of(True) == PrimitiveType.BOOL
 
 
 def test_atomic_type_of_str():
-    assert atomic_type_of("abc") == AtomicType.STRING
+    assert primitive_type_of("abc") == PrimitiveType.STRING
 
 
 def test_datatype_of_bool():
-    assert datatype_of(True) == AtomicType.BOOL
+    assert scalar_type_of(True) == PrimitiveType.BOOL
 
 
 def test_datatype_of_int():
-    assert datatype_of(42) == NumericPrimitiveType.INT
+    assert scalar_type_of(42) == NumericPrimitiveType.INT
 
 
 def test_common_datatype():
-    assert common_datatype({AtomicType.BOOL, NumericPrimitiveType.INT}) == NumericPrimitiveType.INT
+    assert common_scalar_type({PrimitiveType.BOOL, NumericPrimitiveType.INT}) == NumericPrimitiveType.INT
 
 
 def test_interval_base_type():
@@ -79,7 +79,7 @@ def test_struct_padding_validate():
 
 
 def test_struct_attribute_validate():
-    attr = StructAttribute("x", SizedType(AtomicType.BOOL, 1))
+    attr = StructAttribute("x", SizedType(PrimitiveType.BOOL, 1))
     attr.validate()
 
 
@@ -118,11 +118,11 @@ def test_common_numeric_primitive_type():
 
 
 def test_sized_type_defaults():
-    st = SizedType(AtomicType.BOOL)
+    st = SizedType(PrimitiveType.BOOL)
     assert st.size_bits == 1
     st2 = SizedType(NumericPrimitiveType.INT, 32)
     assert st2.size_bytes == 4
 
 
 def test_validate_type_size():
-    validate_type_size(AtomicType.BOOL, 1)
+    validate_type_size(PrimitiveType.BOOL, 1)

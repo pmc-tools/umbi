@@ -1,21 +1,9 @@
 from importlib import import_module
-from typing import TYPE_CHECKING
 
 from .logger import set_log_level, setup_logging
 from .version import __format_revision__, __format_version__, __toolname__, __version__
 
-# Static analyzers (Pylance/mypy) evaluate this block to learn exported submodules,
-# while runtime skips it to avoid eager imports and potential import cycles.
-if TYPE_CHECKING:
-    from . import ats as ats
-    from . import binary as binary
-    from . import datatypes as datatypes
-    from . import index as index
-    from . import io as io
-    from . import version as version
-
-
-_SUBMODULES = {"ats", "binary", "datatypes", "index", "io", "version"}
+_SUBMODULES = {"ats", "binary", "datatypes", "io", "umb", "version"}
 
 
 def __getattr__(name: str):
@@ -37,10 +25,5 @@ __all__ = [
     "__version__",
     "__format_version__",
     "__format_revision__",
-    "datatypes",
-    "binary",
-    "io",
-    "index",
-    "ats",
     "version",
 ]

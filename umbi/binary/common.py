@@ -3,11 +3,11 @@
 """
 
 from umbi.datatypes import (
-    ValueType,
-    DataType,
+    Scalar,
+    ScalarType,
     NumericPrimitive,
     SizedType,
-    AtomicType,
+    PrimitiveType,
     NumericPrimitiveType,
     Interval,
     IntervalType,
@@ -25,12 +25,12 @@ from .strings import bytes_to_string, string_to_bytes
 from bitstring import BitArray
 
 
-def bytes_to_value(data: bytes, value_type: DataType, little_endian: bool = True) -> ValueType:
+def bytes_to_value(data: bytes, value_type: ScalarType, little_endian: bool = True) -> Scalar:
     """Convert a binary string to a single value of the given common type."""
-    if isinstance(value_type, AtomicType):
-        if value_type == AtomicType.BOOL:
+    if isinstance(value_type, PrimitiveType):
+        if value_type == PrimitiveType.BOOL:
             return any(b != 0 for b in data)
-        else:  # value_type == AtomicType.STRING:
+        else:  # value_type == PrimitiveType.STRING:
             return bytes_to_string(data)
     else:  # umbi.datatypes.is_numeric_type(value_type):
         if isinstance(value_type, NumericPrimitiveType):
@@ -40,14 +40,14 @@ def bytes_to_value(data: bytes, value_type: DataType, little_endian: bool = True
             return bytes_to_interval(data, value_type, little_endian=little_endian)
 
 
-def value_to_bytes(value: ValueType, sized_type: SizedType, little_endian: bool = True) -> bytes:
+def value_to_bytes(value: Scalar, sized_type: SizedType, little_endian: bool = True) -> bytes:
     """Convert a value of a given type to a bytestring."""
     type = sized_type.type
-    if isinstance(type, AtomicType):
-        if type == AtomicType.BOOL:
+    if isinstance(type, PrimitiveType):
+        if type == PrimitiveType.BOOL:
             assert isinstance(value, bool), "expected a boolean value"
             return bytes([1 if value else 0])
-        else:  # type == AtomicType.STRING:
+        else:  # type == PrimitiveType.STRING:
             assert isinstance(value, str), "expected a string value"
             return string_to_bytes(value)
     else:  # umbi.datatypes.is_numeric_type(type):
@@ -60,12 +60,12 @@ def value_to_bytes(value: ValueType, sized_type: SizedType, little_endian: bool 
             return interval_to_bytes(value, sized_type, little_endian=little_endian)
 
 
-def bits_to_value(bits: BitArray, value_type: DataType) -> ValueType:
+def bits_to_value(bits: BitArray, value_type: ScalarType) -> Scalar:
     """Convert a BitArray to a single value of the given common type."""
-    if isinstance(value_type, AtomicType):
-        if value_type == AtomicType.BOOL:
+    if isinstance(value_type, PrimitiveType):
+        if value_type == PrimitiveType.BOOL:
             return bits_to_bool(bits)
-        else:  # value_type == AtomicType.STRING:
+        else:  # value_type == PrimitiveType.STRING:
             raise ValueError("cannot unpack string from bits")
     else:  # umbi.datatypes.is_numeric_type(value_type):
         if isinstance(value_type, NumericPrimitiveType):
@@ -74,14 +74,14 @@ def bits_to_value(bits: BitArray, value_type: DataType) -> ValueType:
             raise ValueError("cannot unpack interval from bits")
 
 
-def value_to_bits(value: ValueType, sized_type: SizedType) -> BitArray:
+def value_to_bits(value: Scalar, sized_type: SizedType) -> BitArray:
     """Convert a value of a given type to a fixed-length bit representation."""
     type = sized_type.type
-    if isinstance(type, AtomicType):
-        if type == AtomicType.BOOL:
+    if isinstance(type, PrimitiveType):
+        if type == PrimitiveType.BOOL:
             assert isinstance(value, bool), "expected a boolean value"
             return bool_to_bits(value, sized_type.size_bits)
-        else:  # type == AtomicType.STRING:
+        else:  # type == PrimitiveType.STRING:
             raise ValueError("cannot pack string to bits")
     else:  # umbi.datatypes.is_numeric_type(type):
         if isinstance(type, NumericPrimitiveType):

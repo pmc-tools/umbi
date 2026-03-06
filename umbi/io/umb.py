@@ -1,22 +1,17 @@
 """
-Utilities for reading and writing umbfiles.
+Reading and writing umbfiles into ExplicitUmb.
 """
 
 import pathlib
 from enum import Enum
 import logging
-from dataclasses import dataclass, field
 
-import umbi
-from umbi.datatypes import (
-    Numeric,
-    AtomicType,
-    SizedType,
-    UINT32,
-    UINT64,
-)
+import umbi.binary
+import umbi.datatypes
+import umbi.umb.index
 
-from umbi.index import Annotation, UmbIndex, ValuationDescription
+from umbi.umb import ExplicitUmb
+from umbi.datatypes import UINT32, UINT64, PrimitiveType
 from .tar_coders import TarDecoder, TarEncoder
 
 
@@ -37,41 +32,8 @@ class UmbFile(Enum):
     BRANCH_TO_PROBABILITY = "branch-to-probability.bin"
 
 
-@dataclass
-class ExplicitUmb:
-    """Class for an explicit representation of a umbfile. The goal of this class is to have all the data is stored in python lists, rather than binary formats."""
-
-    index: UmbIndex = field(default_factory=UmbIndex)
-
-    state_is_initial: list[bool] = field(default_factory=list)
-    state_to_choices: list[int] | None = None
-    state_to_player: list[int] | None = None
-
-    state_is_markovian: list[bool] | None = None
-    state_to_exit_rate: list[Numeric] | None = None
-
-    choice_to_branches: list[int] | None = None
-    branch_to_target: list[int] | None = None
-    branch_to_probability: list[Numeric] | None = None
-
-    choice_to_choice_action: list[int] | None = None
-    choice_action_to_string: list[str] | None = None
-
-    branch_to_branch_action: list[int] | None = None
-    branch_action_to_string: list[str] | None = None
-
-    annotations: dict[str, dict[str, dict[str, list]]] | None = None  # group -> name -> applies_to -> values
-    valuations: dict[str, list] | None = None  # applies_to -> valuations
-    entity_to_observation: list[int] | None = (
-        None  # for each entity (index.observations_apply_to), an observation index
-    )
-
-    def validate(self):
-        self.index.validate()
-
-
 class UmbReader(TarDecoder):
-    def __init__(self, tarpath: str | pathlib.Path, strict_mode: bool = False):
+    def __init__(self, tarpath: str | pathlib.Path, strict_mode: bool = False) -> None:
         """
         :param tarpath: path to the umbfile
         :param strict_mode: in the strict mode, unknown files will raise an error
@@ -98,12 +60,13 @@ class UmbReader(TarDecoder):
 
     def read_index_file(self, umb: ExplicitUmb):
         json_bytes = self.read_file(UmbFile.INDEX.value, required=True)
-        json_obj = umbi.datatypes.string_to_json(
-            umbi.binary.bytes_to_value(json_bytes, umbi.datatypes.AtomicType.STRING)
-        )
+        assert json_bytes is not None
+        json_str = umbi.binary.bytes_to_value(json_bytes, PrimitiveType.STRING)
+        assert isinstance(json_str, str)
+        json_obj = umbi.datatypes.string_to_json(json_str)
         pretty_str = umbi.datatypes.json_to_string(json_obj)
         logger.debug(f"loaded the following index file:\n{pretty_str}")
-        idx = UmbIndex.from_json(json_obj)
+        idx = umbi.umb.index.UmbIndex.from_json(json_obj)
         idx.validate()
         umb.index = idx
 
@@ -191,7 +154,13 @@ class UmbReader(TarDecoder):
             for name, annotation in annotation_map.items():
                 self.read_annotation(umb, group, name, annotation)
 
-    def read_annotation(self, umb: ExplicitUmb, group: str, name: str, annotation: Annotation):
+    def read_annotation(
+        self,
+        umb: ExplicitUmb,
+        group: str,
+        name: str,
+        annotation: umbi.umb.index.AnnotationDescription,
+    ):
         """
         Read annotation files for a single annotation.
         :param group: annotation group, e.g. "rewards", "aps", or custom group
@@ -211,13 +180,13 @@ class UmbReader(TarDecoder):
             raise NotImplementedError("reading stochastic annotations is not implemented")
         for applies_to in annotation.applies_to:
             path = f"annotations/{group}/{name}/{applies_to}"
-            if annotation.type.type == AtomicType.STRING:
+            if annotation.type.type == PrimitiveType.STRING:
                 vector = self.read_strings(
                     f"{path}/strings.bin",
                     required=True,
                     filename_csr=f"{path}/string-mapping.bin",
                 )
-            elif annotation.type.type == AtomicType.BOOL:
+            elif annotation.type.type == PrimitiveType.BOOL:
                 num_entries = {
                     "states": ts.num_states,
                     "choices": ts.num_choices,
@@ -241,7 +210,7 @@ class UmbReader(TarDecoder):
         self,
         umb: ExplicitUmb,
         applies_to: str,
-        valuation_desc: ValuationDescription,
+        valuation_desc: umbi.umb.index.ValuationDescription,
     ):
         ts = umb.index.transition_system
         num_entries = {
@@ -299,7 +268,7 @@ class UmbWriter(TarEncoder):
         umb.index.validate()
         json_obj = umb.index.to_json()
         json_str = umbi.datatypes.json_to_string(json_obj)
-        json_bytes = umbi.binary.value_to_bytes(json_str, SizedType(AtomicType.STRING))
+        json_bytes = umbi.binary.value_to_bytes(json_str, umbi.datatypes.SizedType(PrimitiveType.STRING))
         self.add_file(UmbFile.INDEX.value, json_bytes)
 
     def add_state_files(self, umb: ExplicitUmb):
@@ -309,10 +278,7 @@ class UmbWriter(TarEncoder):
         if umb.index.transition_system.num_players > 0:
             self.add_vector(UmbFile.STATE_TO_PLAYER.value, UINT32, umb.state_to_player)
 
-        if umb.index.transition_system.time == "discrete":
-            # skip writing the file, all states are probabilistic
-            pass
-        else:
+        if umb.index.transition_system.time != "discrete":
             assert umb.state_is_markovian is not None, "state_is_markovian must be specified"
             self.add_bitvector(UmbFile.STATE_IS_MARKOVIAN.value, umb.state_is_markovian)
             if umb.index.transition_system.exit_rate_type is not None:
@@ -372,7 +338,13 @@ class UmbWriter(TarEncoder):
             for name, annotation in annotation_map.items():
                 self.add_annotation(umb, group, name, annotation)
 
-    def add_annotation(self, umb: ExplicitUmb, group: str, name: str, annotation: Annotation):
+    def add_annotation(
+        self,
+        umb: ExplicitUmb,
+        group: str,
+        name: str,
+        annotation: umbi.umb.index.AnnotationDescription,
+    ):
         """
         Add files for a single annotation.
         :param umb: ExplicitUmb object to write from
@@ -390,9 +362,9 @@ class UmbWriter(TarEncoder):
         for applies_to in annotation.applies_to:
             path = f"annotations/{group}/{name}/{applies_to}"
             values = umb.annotations[group][name][applies_to]
-            if annotation.type.type == AtomicType.STRING:
+            if annotation.type.type == PrimitiveType.STRING:
                 self.add_strings(f"{path}/strings.bin", values, f"{path}/string-mapping.bin", required=True)
-            elif annotation.type.type == AtomicType.BOOL:
+            elif annotation.type.type == PrimitiveType.BOOL:
                 self.add_bitvector(f"{path}/values.bin", values, required=True)
             else:
                 self.add_vector(f"{path}/values.bin", annotation.type, values, required=True)
@@ -408,7 +380,7 @@ class UmbWriter(TarEncoder):
         self,
         umb: ExplicitUmb,
         applies_to: str,
-        valuation_desc: ValuationDescription,
+        valuation_desc: umbi.umb.index.ValuationDescription,
     ):
         ts = umb.index.transition_system
         num_entries = {

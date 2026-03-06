@@ -103,9 +103,6 @@ class ExplicitAts:
         lines.append(")")
         return "\n".join(lines)
 
-    def __repr__(self) -> str:
-        return self.__str__()
-
     # helper properties and methods
 
     @property

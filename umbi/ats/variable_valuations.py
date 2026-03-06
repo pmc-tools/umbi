@@ -2,8 +2,8 @@ from dataclasses import dataclass, field
 
 
 from umbi.datatypes import (
-    DataType,
-    ValueType,
+    ScalarType,
+    Scalar,
     NumericPrimitiveType,
 )
 
@@ -23,7 +23,7 @@ class Variable:
     # sorted list of possible values
     _domain: Domain | None = None
 
-    def __init__(self, name: str):
+    def __init__(self, name: str) -> None:
         self._name = name
 
     def __hash__(self) -> int:
@@ -48,7 +48,7 @@ class Variable:
         self._domain = domain
         self._domain.sort()
 
-    def set_values(self, values: Iterable[ValueType]) -> None:
+    def set_values(self, values: Iterable[Scalar]) -> None:
         self.set_domain(Domain(values))
 
     @property
@@ -58,19 +58,19 @@ class Variable:
         return self._domain
 
     @property
-    def type(self) -> DataType:
+    def type(self) -> ScalarType:
         self._assert_domain_set()
         assert self._domain is not None
         return self._domain.type
 
     @property
-    def lower(self) -> ValueType:
+    def lower(self) -> Scalar:
         self._assert_domain_set()
         assert self._domain is not None
         return self._domain.lower
 
     @property
-    def upper(self) -> ValueType:
+    def upper(self) -> Scalar:
         self._assert_domain_set()
         assert self._domain is not None
         return self._domain.upper
@@ -98,14 +98,14 @@ class VariableValuations:
     # the variable
     _variable: Variable
     # for each entity, the valuation of the variable
-    _values: list[ValueType | None] = field(default_factory=list)
+    _values: list[Scalar | None] = field(default_factory=list)
 
     @property
     def variable(self) -> Variable:
         return self._variable
 
     @property
-    def values(self) -> list[ValueType | None]:
+    def values(self) -> list[Scalar | None]:
         return self._values
 
     @property
@@ -123,13 +123,13 @@ class VariableValuations:
         while len(self._values) < num_entities:
             self._values.append(None)
 
-    def get_entity_value(self, entity: int) -> ValueType | None:
+    def get_entity_value(self, entity: int) -> Scalar | None:
         """Gets the valuation for a given entity index."""
         if entity < 0 or entity >= self.num_values:
             raise IndexError(f"entity index {entity} out of range [0, {self.num_values})")
         return self._values[entity]
 
-    def set_entity_value(self, entity: int, value: ValueType | None) -> None:
+    def set_entity_value(self, entity: int, value: Scalar | None) -> None:
         """Sets the valuation for a given entity index. Increases capacity if needed."""
         self.ensure_capacity(entity + 1)
         self._values[entity] = value
@@ -230,7 +230,7 @@ class EntityValuations:
         if self._num_entities < num_entities:
             self._num_entities = num_entities
 
-    def get_entity_valuation(self, entity: int) -> dict[Variable, ValueType | None]:
+    def get_entity_valuation(self, entity: int) -> dict[Variable, Scalar | None]:
         """Gets the variable valuations for a given entity index."""
         if entity < 0 or entity >= self.num_entities:
             raise IndexError(f"entity {entity} out of range [0, {self.num_entities})")
@@ -239,7 +239,7 @@ class EntityValuations:
             for variable, variable_valuation in self._variable_to_valuations.items()
         }
 
-    def set_entity_valuation(self, entity: int, valuations: dict[Variable, ValueType | None]) -> None:
+    def set_entity_valuation(self, entity: int, valuations: dict[Variable, Scalar | None]) -> None:
         """Adds a new entity with the given variable valuations."""
         self.ensure_capacity(entity + 1)
         for variable, value in valuations.items():
@@ -314,6 +314,12 @@ class EntityClassValuations(dict[EntityClass, EntityValuations]):
         if not self.has_values_for(entity_class):
             raise KeyError(f"Annotation has no values for entity class {entity_class}")
         del self[entity_class]
+
+    def __str__(self) -> str:
+        lines = [f"{self.__class__.__name__}:"]
+        for entity_class, valuations in self.items():
+            lines.append(f"  {entity_class}: {valuations}")
+        return "\n".join(lines)
 
     ### Convenience properties and methods for each entity class ###
     @property

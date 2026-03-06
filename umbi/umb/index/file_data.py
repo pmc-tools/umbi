@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 from marshmallow import fields
 
-import umbi
+import umbi.datatypes
 
 from .json_schema import (
     JsonSchema,

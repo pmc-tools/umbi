@@ -1,23 +1,17 @@
 from dataclasses import dataclass, field
 from umbi.datatypes import (
-    AtomicType,
-    DataType,
+    PrimitiveType,
+    ScalarType,
     NumericType,
     NumericPrimitiveType,
-    common_datatype,
+    common_scalar_type,
+    common_collection_element_type,
 )
 
 from .entity_class import EntityClass
-from .custom_lists import TypedIterable
 import logging
 
 logger = logging.getLogger(__name__)
-
-
-class EntityToValue(list, TypedIterable):
-    """A list of values associated with entities of a certain class."""
-
-    pass
 
 
 @dataclass
@@ -27,7 +21,7 @@ class Annotation:
     name: str
     alias: str | None = None
     description: str | None = None
-    _entity_class_to_values: dict[EntityClass, EntityToValue] = field(default_factory=dict[EntityClass, EntityToValue])
+    _entity_class_to_values: dict[EntityClass, list] = field(default_factory=dict[EntityClass, list])
 
     @classmethod
     def entity_class_enabled(cls, entity_class: EntityClass) -> bool:
@@ -35,7 +29,7 @@ class Annotation:
         return True
 
     @property
-    def mappings(self) -> dict[EntityClass, EntityToValue]:
+    def mappings(self) -> dict[EntityClass, list]:
         """Alias for entity_class_to_values."""
         return self._entity_class_to_values
 
@@ -53,7 +47,7 @@ class Annotation:
         """Check if the annotation has values for the given entity class."""
         return self._entity_class_to_values.get(entity_class) is not None
 
-    def get_values_for(self, entity_class: EntityClass) -> EntityToValue:
+    def get_values_for(self, entity_class: EntityClass) -> list:
         """
         Get the values for the given entity class.
         :raises KeyError: if no values are set for the given entity class
@@ -62,12 +56,12 @@ class Annotation:
             raise KeyError(f"Annotation has no values for entity class {entity_class}")
         return self._entity_class_to_values[entity_class]
 
-    def set_values_for(self, entity_class: EntityClass, values: EntityToValue | list) -> None:
+    def set_values_for(self, entity_class: EntityClass, values: list) -> None:
         """Set the values for the given entity class."""
         if not self.entity_class_enabled(entity_class):
             raise ValueError(f"Entity class {entity_class} is not enabled for this annotation type")
         if isinstance(values, list):
-            values = EntityToValue(values)
+            values = list(values)
         self._entity_class_to_values[entity_class] = values
 
     def unset_values_for(self, entity_class: EntityClass) -> None:
@@ -98,38 +92,38 @@ class Annotation:
         return self.has_values_for(EntityClass.PLAYERS)
 
     @property
-    def state_values(self) -> EntityToValue:
+    def state_values(self) -> list:
         return self.get_values_for(EntityClass.STATES)
 
     @property
-    def choice_values(self) -> EntityToValue:
+    def choice_values(self) -> list:
         return self.get_values_for(EntityClass.CHOICES)
 
     @property
-    def branch_values(self) -> EntityToValue:
+    def branch_values(self) -> list:
         return self.get_values_for(EntityClass.BRANCHES)
 
     @property
-    def observation_values(self) -> EntityToValue:
+    def observation_values(self) -> list:
         return self.get_values_for(EntityClass.OBSERVATIONS)
 
     @property
-    def player_values(self) -> EntityToValue:
+    def player_values(self) -> list:
         return self.get_values_for(EntityClass.PLAYERS)
 
-    def set_state_values(self, values: EntityToValue | list):
+    def set_state_values(self, values: list):
         self.set_values_for(EntityClass.STATES, values)
 
-    def set_choice_values(self, values: EntityToValue | list):
+    def set_choice_values(self, values: list):
         self.set_values_for(EntityClass.CHOICES, values)
 
-    def set_branch_values(self, values: EntityToValue | list):
+    def set_branch_values(self, values: list):
         self.set_values_for(EntityClass.BRANCHES, values)
 
-    def set_observation_values(self, values: EntityToValue | list):
+    def set_observation_values(self, values: list):
         self.set_values_for(EntityClass.OBSERVATIONS, values)
 
-    def set_player_values(self, values: EntityToValue | list):
+    def set_player_values(self, values: list):
         self.set_values_for(EntityClass.PLAYERS, values)
 
     def unset_state_values(self):
@@ -157,16 +151,14 @@ class Annotation:
             and self._entity_class_to_values == other._entity_class_to_values
         )
 
-    @property
-    def common_type(self) -> DataType:
-        """Infer the data type of the annotation from its values."""
-        # TODO this is obsolete, get rid of type handling in this package
-        types: set[DataType] = set()
-        for v in self._entity_class_to_values.values():
-            types.add(v.type)
+    def get_common_type(self) -> ScalarType:
+        """Infer the common data type of annotation values."""
+        types: set[ScalarType] = set()
+        for values in self._entity_class_to_values.values():
+            types.add(common_collection_element_type(values))
         if len(types) == 0:
             raise ValueError("Annotation has no values to infer type from")
-        return common_datatype(types)
+        return common_scalar_type(types)
 
     def validate(self):
         """Validate the annotation data."""
@@ -193,7 +185,7 @@ class RewardAnnotation(Annotation):
     def validate(self):
         super().validate()
         # Additional validation for reward annotations can be added here
-        type = self.common_type
+        type = self.get_common_type()
         if not isinstance(type, NumericType):
             raise ValueError(f"Reward annotation type must be NumericType, got {type}")
 
@@ -208,16 +200,16 @@ class AtomicPropositionAnnotation(Annotation):
     def validate(self):
         super().validate()
         # Additional validation for AP annotations can be added here
-        type = self.common_type
-        if type != AtomicType.BOOL:
-            raise ValueError(f"AP annotation type must be AtomicType.BOOL, got {type}")
+        type = self.get_common_type()
+        if type != PrimitiveType.BOOL:
+            raise ValueError(f"AP annotation type must be PrimitiveType.BOOL, got {type}")
 
 
 @dataclass
 class ObservationAnnotation(Annotation):
     """Observation annotation is an integer annotation that can only be associated with either states or branches."""
 
-    def __init__(self, num_observations: int):
+    def __init__(self, num_observations: int) -> None:
         super().__init__(name="observation")
         self.num_observations = num_observations
 
@@ -233,11 +225,11 @@ class ObservationAnnotation(Annotation):
         return next(iter(self.entity_classes))
 
     @property
-    def values(self) -> EntityToValue:
+    def values(self) -> list:
         """Get the values for the entity class of this observation annotation."""
         return self.get_values_for(self.entity_class)
 
-    def set_values_for(self, entity_class: EntityClass, values: EntityToValue | list):
+    def set_values_for(self, entity_class: EntityClass, values: list):
         if self.has_values and entity_class != self.entity_class:
             raise ValueError("Observation annotation can only have values for one entity class")
         return super().set_values_for(entity_class, values)
@@ -246,8 +238,8 @@ class ObservationAnnotation(Annotation):
         super().validate()
         if not (isinstance(self.num_observations, int) and 0 < self.num_observations):
             raise ValueError(f"num_observations must be a positive integer, got {self.num_observations}")
-        if self.common_type != NumericPrimitiveType.INT:
-            raise ValueError(f"Observation annotation type must be INT, got {self.common_type}")
+        if self.get_common_type() != NumericPrimitiveType.INT:
+            raise ValueError(f"Observation annotation type must be INT, got {self.get_common_type()}")
         for item, obs in enumerate(self.values):
             if not 0 <= obs < self.num_observations:  # type: ignore
                 raise ValueError(f"observation mapping[{item}] = {obs} is out of range [0, {self.num_observations})")

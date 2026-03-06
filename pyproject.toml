@@ -23,12 +23,13 @@ Homepage = "https://github.com/randriu/umbi"
 [project.optional-dependencies]
 dev = [
   "pytest",
-  "pip-tools",
-  "pre-commit",
+  "pyright",
   "ruff",
   "toml-sort",
-  "bump-my-version",
   "uv",
+  "pre-commit",
+  "pip-tools",
+  "bump-my-version",
 ]
 
 [tool.setuptools.packages.find]
@@ -71,3 +72,22 @@ exclude = [
   "__pycache__",
 ]
 target-version = "py311"
+
+[tool.pyright]
+include = [
+  "umbi",
+  # "tests",
+  # "examples",
+]
+exclude = [
+  "build",
+  "**/__pycache__",
+  "umbi.egg-info",
+]
+pythonVersion = "3.11"
+typeCheckingMode = "standard"
+reportMissingImports = true
+reportMissingTypeStubs = false
+reportImportCycles = "warning"
+reportUnusedImport = "warning"
+reportUnusedVariable = "warning"

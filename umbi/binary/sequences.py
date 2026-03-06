@@ -4,7 +4,7 @@
 
 import logging
 
-from umbi.datatypes import DataType, SizedType, StructType, BOOL1
+from umbi.datatypes import ScalarType, SizedType, StructType, BOOL1
 
 from .bitvectors import bitvector_to_bytes, bytes_to_bitvector
 from .common import (
@@ -67,7 +67,7 @@ def bytes_to_vector(data: bytes, value_sized_type: SizedType | StructType, littl
 
 def bytes_with_csr_to_vector(
     data: bytes,
-    value_type: DataType,
+    value_type: ScalarType,
     chunk_ranges: list[tuple[int, int]],
     little_endian: bool = True,
 ) -> list:
