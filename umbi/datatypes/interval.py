@@ -48,10 +48,6 @@ class Interval:
         self.validate()
 
     def validate(self) -> None:
-        if not isinstance(self.left, NumericPrimitive):
-            raise ValueError(f"expected numeric left bound, got: {self.left}")
-        if not isinstance(self.right, NumericPrimitive):
-            raise ValueError(f"expected numeric right bound, got: {self.right}")
         if not self.left <= self.right:
             raise ValueError(f"expected {self.left} <=  {self.right}")
 
@@ -79,27 +75,13 @@ class Interval:
             return NumericPrimitiveType.RATIONAL
         elif isinstance(self.left, float) or isinstance(self.right, float):
             return NumericPrimitiveType.DOUBLE
-        elif isinstance(self.left, int) or isinstance(self.right, int):
+        else:  # isinstance(self.left, int) and isinstance(self.right, int):
             return NumericPrimitiveType.INT
-        else:
-            raise ValueError(f"cannot determine base type of interval: {self}")
 
     @property
     def type(self) -> IntervalType:
         """Get the interval type of the interval."""
         return base_to_interval_type(self.base_type)
-
-
-# def interval_type_of(value: object) -> IntervalType:
-#     """Determine the interval type of a given value."""
-#     if not isinstance(value, Interval):
-#         raise ValueError(f"cannot match value to an interval type: {value}")
-#     return value.type()
-
-
-# def is_instance_of_interval_type(value: object, type: IntervalType) -> bool:
-#     """Check if a value is an instance of the given interval type."""
-#     return isinstance(value, Interval) and get_instance_interval_type(value) == type
 
 
 def common_interval_type(types: set[IntervalType]) -> IntervalType:
