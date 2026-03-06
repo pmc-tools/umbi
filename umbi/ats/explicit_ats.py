@@ -3,6 +3,8 @@ from dataclasses import dataclass, field, fields
 from enum import Enum
 from typing import Iterable
 
+from umbi.datatypes import Numeric
+
 from .entity_class import EntityClass
 from .annotations import (
     Annotation,
@@ -47,7 +49,7 @@ class ExplicitAts:
 
     num_initial_states: int = 0
     """Number of initial states. Must be consistent with state_is_initial."""
-    state_is_initial: list[bool] = field(default_factory=list)
+    state_is_initial: list[bool] = field(default_factory=lambda: [False])
     """State-to-whether-initial mapping."""
 
     num_choices: int = 0
@@ -62,12 +64,12 @@ class ExplicitAts:
 
     branch_to_target: list[int] | None = None
     """Branch-to-target-state mapping. Must be set if num_branches > 0."""
-    branch_to_probability: list | None = None
+    branch_to_probability: list[Numeric] | None = None
     """Branch-to-probability mapping. Must be set if num_branches > 0. Can contain arbitrary Numeric values."""
 
     state_is_markovian: list[bool] | None = None
     """State-to-whether-markovian mapping. Must be set if time is TimeType.STOCHASTIC."""
-    state_to_exit_rate: list | None = None
+    state_to_exit_rate: list[Numeric] | None = None
     """State-to-exit-rate mapping. Must be set if time is TimeType.STOCHASTIC. Can contain arbitrary Numeric values."""
 
     num_choice_actions: int = 0
@@ -84,7 +86,7 @@ class ExplicitAts:
     branch_action_to_name: list[str] | None = None
     """Branch-action-to-string mapping. Can only be set if num_branch_actions > 0."""
 
-    annotations: dict[str, dict[str, Annotation]] = field(default_factory=dict)
+    annotations: dict[str, dict[str, Annotation]] = field(default_factory=lambda: {})
     """
     Annotation category -> (annotation name -> annotation) mapping. Categories 'rewards' and 'aps' can be used, but
     must be of the type RewardAnnotation and AtomicPropositionAnnotation, respectively.
@@ -270,12 +272,8 @@ class ExplicitAts:
                 raise ValueError("expected len(branch_to_target) == num_branches")
 
         for reward_annotation in self.reward_annotations.values():
-            if not isinstance(reward_annotation, RewardAnnotation):
-                raise ValueError(f"expected RewardAnnotation, got {type(reward_annotation)}")
             reward_annotation.validate()
         for ap_annotation in self.ap_annotations.values():
-            if not isinstance(ap_annotation, AtomicPropositionAnnotation):
-                raise ValueError(f"expected AtomicPropositionAnnotation, got {type(ap_annotation)}")
             ap_annotation.validate()
         if self.observation_annotation is not None:
             self.observation_annotation.validate()
@@ -296,7 +294,7 @@ class ExplicitAts:
                     )
                 valuations.validate()
 
-    def equal(self, other: object, debug=False) -> bool:
+    def equal(self, other: object, debug: bool = False) -> bool:
         if not isinstance(other, ExplicitAts):
             if debug:
                 logger.debug("ExplicitAts.__eq__: other is not an ExplicitAts")
@@ -312,5 +310,5 @@ class ExplicitAts:
                 logger.debug(f"  other: {getattr(other, field_name)}")
         return equal
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         return self.equal(other)

@@ -432,6 +432,8 @@ def read_umb(umbpath: str | pathlib.Path) -> ExplicitUmb:
     return UmbReader(umbpath).read_umb()
 
 
-def write_umb(umb: ExplicitUmb, umbpath: str | pathlib.Path):
+def write_umb(umb: ExplicitUmb, umbpath: str | pathlib.Path, replace_file_data: bool = True):
     """Write ExplicitUmb to a umbfile."""
+    if replace_file_data:
+        umb.index.file_data = umbi.umb.index.umbi_file_data()
     UmbWriter().write_umb(umb, umbpath)

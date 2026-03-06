@@ -36,7 +36,7 @@ def is_vector_ranges(ranges: list[tuple[int, int]]) -> bool:
         return False
 
     def is_interval(x: tuple[int, int]) -> bool:
-        return isinstance(x, tuple) and len(x) == 2 and all(isinstance(y, int) for y in x) and x[0] <= x[1]
+        return x[0] <= x[1]
 
     if not all(is_interval(interval) for interval in ranges):
         return False
@@ -49,8 +49,6 @@ def is_vector_ranges(ranges: list[tuple[int, int]]) -> bool:
 def is_vector_csr(vector: list[int]) -> bool:
     """Check if a vector is a CSR row start index vector."""
     if len(vector) < 2:
-        return False
-    if not all(isinstance(x, int) for x in vector):
         return False
     if vector[0] != 0:
         return False

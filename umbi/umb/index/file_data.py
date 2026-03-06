@@ -3,9 +3,11 @@ File data schemas and classes.
 """
 
 from dataclasses import dataclass
+import time
 
 from marshmallow import fields
 
+import umbi.version
 import umbi.datatypes
 
 from .json_schema import (
@@ -40,3 +42,13 @@ class FileData(JsonSchemaResult):
     @classmethod
     def class_schema(cls) -> type:
         return FileDataSchema
+
+
+def umbi_file_data() -> FileData:
+    """Generate file data for use in umbfiles created by umbi."""
+    return FileData(
+        tool=umbi.version.__toolname__,
+        tool_version=umbi.version.__version__,
+        creation_date=int(time.time()),
+        # parameters=parameters,
+    )

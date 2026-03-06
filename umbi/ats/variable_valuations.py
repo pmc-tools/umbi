@@ -98,7 +98,7 @@ class VariableValuations:
     # the variable
     _variable: Variable
     # for each entity, the valuation of the variable
-    _values: list[Scalar | None] = field(default_factory=list)
+    _values: list[Scalar | None] = field(default_factory=lambda: [])
 
     @property
     def variable(self) -> Variable:
@@ -158,9 +158,9 @@ class EntityValuations:
     # number of entities (states, actions, etc.) to be associated with variable valuations
     _num_entities: int = 0
     # for each variable name, the corresponding Variable
-    _variable_name_to_variable: dict[str, Variable] = field(default_factory=dict)
+    _variable_name_to_variable: dict[str, Variable] = field(default_factory=lambda: {})
     # for each variable, the corresponding VariableValuations
-    _variable_to_valuations: dict[Variable, VariableValuations] = field(default_factory=dict)
+    _variable_to_valuations: dict[Variable, VariableValuations] = field(default_factory=lambda: {})
 
     @property
     def variables(self) -> list[Variable]:
@@ -270,7 +270,7 @@ class EntityValuations:
                 )
             variable_valuation.validate()
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, EntityValuations):
             return False
         if self.num_entities != other.num_entities:

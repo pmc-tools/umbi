@@ -59,7 +59,7 @@ class StructUnpacker:
         return bits_to_value(bits, sized_type.type)
 
     def unpack_struct(self, value_type: StructType) -> dict[str, Scalar | None]:
-        name_value = dict()
+        name_value: dict[str, Scalar | None] = {}
         for field in value_type:
             if isinstance(field, StructPadding):
                 self.skip_padding(field)
