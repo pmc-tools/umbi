@@ -27,64 +27,49 @@ Examples:
 
 ## Development
 
-### Installing Development Tools
-Run the following command to install all development dependencies:
+### Setup
+
+Install development dependencies:
 
 ```bash
 pip install .[dev]
 ```
 
-This will install tools for testing, linting, and other development tasks.
-
-### Setting Up Pre-Commit Hooks
-To ensure code quality and consistency, this repository uses `pre-commit` hooks that automatically run code formatting and linting ([Ruff](https://github.com/astral-sh/ruff)), and type checking ([Pyright](https://github.com/microsoft/pyright)) before each commit. Developers should set up the hooks by running the following command:
+Configure pre-commit hooks to automatically run code quality checks before each commit:
 
 ```bash
 pre-commit install
 ```
 
-This will configure `pre-commit` to automatically run checks before each commit. To manually run the hooks on all files, use:
+Run hooks manually on all files:
 
 ```bash
 pre-commit run --all-files
 ```
 
-The following sections describe how to run Ruff and Pyright individually.
+### Code Quality
 
-### Code Formatting and Linting with Ruff
+This project uses [Ruff](https://github.com/astral-sh/ruff) for linting and formatting, and [Pyright](https://github.com/microsoft/pyright) for type checking. Configuration is in `pyproject.toml`.
 
-This project uses [Ruff](https://github.com/astral-sh/ruff) for fast linting and formatting. Configuration can be found in `[tool.ruff]` section of `pyproject.toml`.
-
-**Check code for linting issues:**
+**Ruff:**
 ```bash
-ruff check .
+ruff check .       # check for issues
+ruff format .      # format code
+ruff check . --fix # check and fix
 ```
 
-**Format code automatically:**
+**Pyright:**
 ```bash
-ruff format .
+pyright             # check entire project
+pyright umbi/       # check specific directory
 ```
 
-**Check and fix issues in one command:**
+### Lockfiles
+
+Dependencies are pinned using `uv.lock` for reproducible builds. Update lockfiles when `pyproject.toml` changes:
+
 ```bash
-ruff check . --fix
+uv lock
 ```
 
-### Type Checking with Pyright
-
-This project uses [Pyright](https://github.com/microsoft/pyright) for static type checking. Configuration can be found in `[tool.pyright]` section of `pyproject.toml`.
-
-**Run type checker on the entire project:**
-```bash
-pyright
-```
-
-**Run type checker on a specific directory:**
-```bash
-pyright umbi/
-```
-
-Pyright is configured via `pyrightconfig.json` in the project root. Type hints should be added throughout the codebase to ensure comprehensive type coverage.
-
-
-
+Commit the updated lockfile along with `pyproject.toml` changes.
