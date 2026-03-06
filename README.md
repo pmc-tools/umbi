@@ -35,7 +35,9 @@ Install development dependencies:
 pip install .[dev]
 ```
 
-Configure pre-commit hooks to automatically run code quality checks before each commit:
+### Code Quality
+
+This project uses `pre-commit` hooks (configured in [.pre-commit-config.yaml](.pre-commit-config.yaml)) that automatically run code quality checks and update the lockfile before each commit. These hooks enforce consistent code formatting and type safety across the codebase. Set up the hooks with:
 
 ```bash
 pre-commit install
@@ -47,29 +49,25 @@ Run hooks manually on all files:
 pre-commit run --all-files
 ```
 
-### Code Quality
+Individual tools can be run manually:
 
-This project uses [Ruff](https://github.com/astral-sh/ruff) for linting and formatting, and [Pyright](https://github.com/microsoft/pyright) for type checking. Configuration is in `pyproject.toml`.
-
-**Ruff:**
+**[Ruff](https://github.com/astral-sh/ruff)** — Code formatting and linting. Config: [pyproject.toml](pyproject.toml) (`[tool.ruff]`)
 ```bash
 ruff check .       # check for issues
 ruff format .      # format code
 ruff check . --fix # check and fix
 ```
 
-**Pyright:**
+**[Pyright](https://github.com/microsoft/pyright)** — Static type checking. Config: [pyproject.toml](pyproject.toml) (`[tool.pyright]`)
 ```bash
 pyright             # check entire project
 pyright umbi/       # check specific directory
 ```
 
-### Lockfiles
+#### Lockfiles
 
-Dependencies are pinned using `uv.lock` for reproducible builds. Update lockfiles when `pyproject.toml` changes:
+Dependencies are pinned in the [uv.lock](uv.lock) lockfile for reproducible builds. The lockfile is automatically updated via pre-commit hooks when [pyproject.toml](pyproject.toml) changes. To manually update:
 
 ```bash
 uv lock
 ```
-
-Commit the updated lockfile along with `pyproject.toml` changes.
