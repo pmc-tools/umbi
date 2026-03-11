@@ -1,47 +1,37 @@
-# import tempfile
+from pathlib import Path
 
-# import pytest
-# import logging
-# import umbi
-
-# from umbi.examples.ats import grid_ats_from_string, random_walk_ats
-
-# log = logging.getLogger(__name__)
-
-# constructors = [
-#     lambda: random_walk_ats(num_states=5),
-#     lambda: random_walk_ats(num_states=10),
-#     lambda: ats_from_grid_string(
-#         """
-#         ....x..g
-#         ...x....
-#         i.......
-#         ...x.x..
-#         ..xxxx..
-#         """
-#     ),
-#     lambda: ats_from_grid_string(
-#         """
-#         xxxxxxxg
-#         ...xxxx.
-#         i..xxx..
-#         .......i
-#         ..xxxx..
-#         """
-#     ),
-# ]
+import umbi.ats
+import umbi.io
 
 
-# @pytest.mark.parametrize("constructor", constructors)
-# def test_validate_function_output(constructor):
-#     ats = constructor()
-#     log.debug("Created ATS with %s states and %s choices", ats.num_states, ats.num_choices)
+def test_public_io_exports_are_available():
+    assert callable(umbi.io.read_umb)
+    assert callable(umbi.io.write_umb)
+    assert callable(umbi.io.explicit_umb_to_explicit_ats)
+    assert callable(umbi.io.explicit_ats_to_explicit_umb)
+    assert callable(umbi.io.read_ats)
+    assert callable(umbi.io.write_ats)
 
-#     with tempfile.NamedTemporaryFile() as f:
-#         # write to file and read back
-#         umbi.io.write_ats(ats, f.name)
-#         ats_loaded = umbi.io.read_ats(f.name)
 
-#     log.debug("Loaded ATS with %s states and %s choices", ats_loaded.num_states, ats_loaded.num_choices)
+def test_explicit_ats_to_umb_and_back_smoke():
+    ats = umbi.ats.ExplicitAts()
+    umb = umbi.io.explicit_ats_to_explicit_umb(ats)
+    ats_loaded = umbi.io.explicit_umb_to_explicit_ats(umb)
 
-#     assert ats.equal(ats_loaded, debug=True)
+    assert ats_loaded.num_states == ats.num_states
+    assert ats_loaded.num_choices == ats.num_choices
+    assert ats_loaded.num_branches == ats.num_branches
+    assert ats_loaded.time == ats.time
+
+
+def test_write_and_read_ats_smoke(tmp_path: Path):
+    ats = umbi.ats.ExplicitAts()
+    output = tmp_path / "basic.umb"
+
+    umbi.io.write_ats(ats, output)
+    loaded = umbi.io.read_ats(output)
+
+    assert output.exists()
+    assert loaded.num_states == 1
+    assert loaded.num_choices == 0
+    assert loaded.num_branches == 0
