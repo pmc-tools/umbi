@@ -2,41 +2,32 @@
 Interval datatypes.
 """
 
+from dataclasses import dataclass
 from fractions import Fraction
+from collections.abc import Collection
 from .numeric_primitive import (
     NumericPrimitiveType,
     NumericPrimitive,
-    common_numeric_primitive_type,
+    numeric_primitive_promotion_type,
     promote_numeric_primitive_to,
 )
-import enum
-
-""" Interval types. """
 
 
-class IntervalType(str, enum.Enum):
-    INT = "int-interval"
-    UINT = "uint-interval"
-    DOUBLE = "double-interval"
-    RATIONAL = "rational-interval"
+@dataclass(frozen=True)
+class IntervalType:
+    base_type: NumericPrimitiveType
 
+    def __str__(self) -> str:
+        return f"{self.base_type.value}-interval"
 
-def interval_base_type(type: IntervalType) -> NumericPrimitiveType:
-    return {
-        IntervalType.INT: NumericPrimitiveType.INT,
-        IntervalType.UINT: NumericPrimitiveType.UINT,
-        IntervalType.DOUBLE: NumericPrimitiveType.DOUBLE,
-        IntervalType.RATIONAL: NumericPrimitiveType.RATIONAL,
-    }[type]
-
-
-def base_to_interval_type(type: NumericPrimitiveType) -> IntervalType:
-    return {
-        NumericPrimitiveType.INT: IntervalType.INT,
-        NumericPrimitiveType.UINT: IntervalType.UINT,
-        NumericPrimitiveType.DOUBLE: IntervalType.DOUBLE,
-        NumericPrimitiveType.RATIONAL: IntervalType.RATIONAL,
-    }[type]
+    @classmethod
+    def from_string(cls, s: str) -> "IntervalType":
+        """Parse an interval type from a string s of type <base-type>-interval."""
+        if not s.endswith("-interval"):
+            raise ValueError(f"invalid interval type string: {s}")
+        base_type_string = s.removesuffix("-interval")
+        base_type = NumericPrimitiveType(base_type_string)
+        return cls(base_type)
 
 
 class Interval:
@@ -48,10 +39,6 @@ class Interval:
         self.validate()
 
     def validate(self) -> None:
-        if not isinstance(self.left, NumericPrimitive):
-            raise ValueError(f"expected numeric left bound, got: {self.left}")
-        if not isinstance(self.right, NumericPrimitive):
-            raise ValueError(f"expected numeric right bound, got: {self.right}")
         if not self.left <= self.right:
             raise ValueError(f"expected {self.left} <=  {self.right}")
 
@@ -79,41 +66,27 @@ class Interval:
             return NumericPrimitiveType.RATIONAL
         elif isinstance(self.left, float) or isinstance(self.right, float):
             return NumericPrimitiveType.DOUBLE
-        elif isinstance(self.left, int) or isinstance(self.right, int):
+        else:  # isinstance(self.left, int) and isinstance(self.right, int):
             return NumericPrimitiveType.INT
-        else:
-            raise ValueError(f"cannot determine base type of interval: {self}")
 
     @property
     def type(self) -> IntervalType:
         """Get the interval type of the interval."""
-        return base_to_interval_type(self.base_type)
+        return IntervalType(self.base_type)
 
 
-# def interval_type_of(value: object) -> IntervalType:
-#     """Determine the interval type of a given value."""
-#     if not isinstance(value, Interval):
-#         raise ValueError(f"cannot match value to an interval type: {value}")
-#     return value.type()
-
-
-# def is_instance_of_interval_type(value: object, type: IntervalType) -> bool:
-#     """Check if a value is an instance of the given interval type."""
-#     return isinstance(value, Interval) and get_instance_interval_type(value) == type
-
-
-def common_interval_type(types: set[IntervalType]) -> IntervalType:
+def interval_promotion_type(types: Collection[IntervalType]) -> IntervalType:
     """Determine the common interval type from a set of interval types. Used for type promotion."""
-    assert len(types) > 0, "cannot determine common numeric type of empty set"
+    assert len(types) > 0, "cannot determine common numeric type of empty sequence"
     assert all(isinstance(t, IntervalType) for t in types), f"non-interval types found in set: {types}"
-    base_types = {interval_base_type(t) for t in types}
-    common_base_type = common_numeric_primitive_type(base_types)
-    return base_to_interval_type(common_base_type)
+    base_types = {t.base_type for t in types}
+    common_base_type = numeric_primitive_promotion_type(base_types)
+    return IntervalType(common_base_type)
 
 
 def promote_interval_to(value: Interval, target_type: IntervalType) -> Interval:
     """Promote an interval to the target interval type."""
-    target_base_type = interval_base_type(target_type)
+    target_base_type = target_type.base_type
     return Interval(
         promote_numeric_primitive_to(value.left, target_base_type),
         promote_numeric_primitive_to(value.right, target_base_type),

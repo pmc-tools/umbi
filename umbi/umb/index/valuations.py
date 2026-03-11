@@ -7,7 +7,7 @@ from typing import Any, cast
 from marshmallow import fields, post_load, validate
 from marshmallow_oneofschema.one_of_schema import OneOfSchema
 
-from umbi.datatypes import StructPadding, StructAttribute, StructType
+from umbi.binary.struct_type import StructPadding, StructAttribute, StructType
 from .type import SizedTypeSchema
 
 from .json_schema import (

@@ -3,7 +3,7 @@
 import logging
 
 
-def setup_logging(level=logging.INFO):
+def setup_logging(level: int = logging.INFO):
     """Set up logging for umbi."""
     handler = logging.StreamHandler()
     formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -13,7 +13,7 @@ def setup_logging(level=logging.INFO):
     logger.setLevel(level)
 
 
-def set_log_level(level=logging.INFO):
+def set_log_level(level: int = logging.INFO):
     """Set the logging level for umbi."""
     logger = logging.getLogger("umbi")
     logger.setLevel(level)

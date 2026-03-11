@@ -1,17 +1,13 @@
 from dataclasses import dataclass, field
 
 
-from umbi.datatypes import (
-    ScalarType,
-    Scalar,
-    NumericPrimitiveType,
-)
+from umbi.datatypes import ScalarType, Scalar, NumericPrimitiveType, collection_promotion_type
 
 from collections.abc import Iterable
 
 from .entity_class import EntityClass
 
-from .custom_lists import Domain
+from .domain import Domain
 
 
 @dataclass
@@ -58,10 +54,10 @@ class Variable:
         return self._domain
 
     @property
-    def type(self) -> ScalarType:
+    def promotion_type(self) -> ScalarType:
         self._assert_domain_set()
         assert self._domain is not None
-        return self._domain.type
+        return collection_promotion_type(self._domain)
 
     @property
     def lower(self) -> Scalar:
@@ -82,7 +78,7 @@ class Variable:
             domain_str = f"[{self.lower}..{self.upper}]"
         else:
             domain_str = str(self.domain)
-        return f"Variable(name={self.name}, type={self.type}, domain={domain_str})"
+        return f"Variable(name={self.name}, type={self.promotion_type}, domain={domain_str})"
 
     def __repr__(self) -> str:
         return self.__str__()
@@ -93,12 +89,12 @@ class Variable:
 
 @dataclass
 class VariableValuations:
-    """Mapping from entity to variable valuations."""
+    """Mapping from entity to a given variable valuations."""
 
     # the variable
     _variable: Variable
     # for each entity, the valuation of the variable
-    _values: list[Scalar | None] = field(default_factory=list)
+    _values: list[Scalar | None] = field(default_factory=lambda: [])
 
     @property
     def variable(self) -> Variable:
@@ -144,11 +140,14 @@ class VariableValuations:
         if self.has_undefined_values:
             raise ValueError(f"The domain cannot be synced: entity {self._values.index(None)} has undefined value.")
         self._variable.set_values(self._values)  # type: ignore
-        assert self._variable.type is not None
 
     def validate(self) -> None:
         self.sync_domain()
         self._variable.validate()
+
+
+# alias for a mapping from variable to valuation for a single entity
+EntityValuation = dict[Variable, Scalar | None]
 
 
 @dataclass
@@ -158,9 +157,9 @@ class EntityValuations:
     # number of entities (states, actions, etc.) to be associated with variable valuations
     _num_entities: int = 0
     # for each variable name, the corresponding Variable
-    _variable_name_to_variable: dict[str, Variable] = field(default_factory=dict)
+    _variable_name_to_variable: dict[str, Variable] = field(default_factory=lambda: {})
     # for each variable, the corresponding VariableValuations
-    _variable_to_valuations: dict[Variable, VariableValuations] = field(default_factory=dict)
+    _variable_to_valuations: dict[Variable, VariableValuations] = field(default_factory=lambda: {})
 
     @property
     def variables(self) -> list[Variable]:
@@ -182,6 +181,10 @@ class EntityValuations:
     @property
     def num_entities(self) -> int:
         return self._num_entities
+
+    def assert_entity_index_in_range(self, entity: int) -> None:
+        if entity < 0 or entity >= self.num_entities:
+            raise IndexError(f"entity {entity} out of range [0, {self.num_entities})")
 
     def has_variable(self, variable_name: str) -> bool:
         """Checks if a VariableValuation exists for the given variable name."""
@@ -230,25 +233,30 @@ class EntityValuations:
         if self._num_entities < num_entities:
             self._num_entities = num_entities
 
-    def get_entity_valuation(self, entity: int) -> dict[Variable, Scalar | None]:
+    def get_entity_valuation(self, entity: int) -> EntityValuation:
         """Gets the variable valuations for a given entity index."""
-        if entity < 0 or entity >= self.num_entities:
-            raise IndexError(f"entity {entity} out of range [0, {self.num_entities})")
         return {
             variable: variable_valuation.get_entity_value(entity)
             for variable, variable_valuation in self._variable_to_valuations.items()
         }
 
-    def set_entity_valuation(self, entity: int, valuations: dict[Variable, Scalar | None]) -> None:
+    def set_entity_valuation(self, entity: int, valuation: EntityValuation) -> None:
         """Adds a new entity with the given variable valuations."""
         self.ensure_capacity(entity + 1)
-        for variable, value in valuations.items():
+        for variable, value in valuation.items():
             variable_valuation = self.get_variable_valuations(variable)
             variable_valuation.set_entity_value(entity, value)
 
     def remove_entity(self, entity: int) -> None:
         """Removes the valuations for a given entity index."""
         raise NotImplementedError
+
+    @property
+    def has_distinct_valuations(self) -> bool:
+        """Determines whether the variable valuations are distinct across all entities."""
+        valuations = [self.get_entity_valuation(entity) for entity in range(self.num_entities)]
+        valuations = [tuple(valuation.items()) for valuation in valuations]
+        return len(valuations) == len(set(valuations))
 
     def sync_domains(self) -> None:
         """Synchronizes the domains of all variables based on their valuations."""
@@ -257,11 +265,6 @@ class EntityValuations:
 
     def validate(self) -> None:
         self.sync_domains()
-        for v in self._variable_to_valuations.keys():
-            assert v.type is not None, f"Variable '{v.name}' has no type after syncing domains"
-        for v in self.variables:
-            assert v.type is not None, f"Variable '{v.name}' has no type after syncing domains"
-        assert all(v.type is not None for v in self.variables)
         for variable_valuation in self._variable_to_valuations.values():
             if not variable_valuation.num_values == self.num_entities:
                 raise ValueError(
@@ -270,7 +273,7 @@ class EntityValuations:
                 )
             variable_valuation.validate()
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, EntityValuations):
             return False
         if self.num_entities != other.num_entities:

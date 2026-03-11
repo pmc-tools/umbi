@@ -2,12 +2,14 @@ from dataclasses import dataclass, field
 from umbi.datatypes import (
     PrimitiveType,
     ScalarType,
+    Scalar,
     NumericType,
     NumericPrimitiveType,
-    common_scalar_type,
-    common_collection_element_type,
+    scalar_promotion_type,
+    collection_promotion_type,
 )
 
+from typing import Sequence, cast
 from .entity_class import EntityClass
 import logging
 
@@ -21,7 +23,7 @@ class Annotation:
     name: str
     alias: str | None = None
     description: str | None = None
-    _entity_class_to_values: dict[EntityClass, list] = field(default_factory=dict[EntityClass, list])
+    _entity_class_to_values: dict[EntityClass, list[Scalar]] = field(default_factory=dict[EntityClass, list[Scalar]])
 
     @classmethod
     def entity_class_enabled(cls, entity_class: EntityClass) -> bool:
@@ -29,7 +31,7 @@ class Annotation:
         return True
 
     @property
-    def mappings(self) -> dict[EntityClass, list]:
+    def mappings(self) -> dict[EntityClass, list[Scalar]]:
         """Alias for entity_class_to_values."""
         return self._entity_class_to_values
 
@@ -47,7 +49,7 @@ class Annotation:
         """Check if the annotation has values for the given entity class."""
         return self._entity_class_to_values.get(entity_class) is not None
 
-    def get_values_for(self, entity_class: EntityClass) -> list:
+    def get_values_for(self, entity_class: EntityClass) -> list[Scalar]:
         """
         Get the values for the given entity class.
         :raises KeyError: if no values are set for the given entity class
@@ -56,13 +58,11 @@ class Annotation:
             raise KeyError(f"Annotation has no values for entity class {entity_class}")
         return self._entity_class_to_values[entity_class]
 
-    def set_values_for(self, entity_class: EntityClass, values: list) -> None:
+    def set_values_for(self, entity_class: EntityClass, values: Sequence[Scalar]) -> None:
         """Set the values for the given entity class."""
         if not self.entity_class_enabled(entity_class):
             raise ValueError(f"Entity class {entity_class} is not enabled for this annotation type")
-        if isinstance(values, list):
-            values = list(values)
-        self._entity_class_to_values[entity_class] = values
+        self._entity_class_to_values[entity_class] = list(values)
 
     def unset_values_for(self, entity_class: EntityClass) -> None:
         """Unset the values for the given entity class."""
@@ -92,38 +92,38 @@ class Annotation:
         return self.has_values_for(EntityClass.PLAYERS)
 
     @property
-    def state_values(self) -> list:
+    def state_values(self) -> list[Scalar]:
         return self.get_values_for(EntityClass.STATES)
 
     @property
-    def choice_values(self) -> list:
+    def choice_values(self) -> list[Scalar]:
         return self.get_values_for(EntityClass.CHOICES)
 
     @property
-    def branch_values(self) -> list:
+    def branch_values(self) -> list[Scalar]:
         return self.get_values_for(EntityClass.BRANCHES)
 
     @property
-    def observation_values(self) -> list:
+    def observation_values(self) -> list[Scalar]:
         return self.get_values_for(EntityClass.OBSERVATIONS)
 
     @property
-    def player_values(self) -> list:
+    def player_values(self) -> list[Scalar]:
         return self.get_values_for(EntityClass.PLAYERS)
 
-    def set_state_values(self, values: list):
+    def set_state_values(self, values: list[Scalar]):
         self.set_values_for(EntityClass.STATES, values)
 
-    def set_choice_values(self, values: list):
+    def set_choice_values(self, values: list[Scalar]):
         self.set_values_for(EntityClass.CHOICES, values)
 
-    def set_branch_values(self, values: list):
+    def set_branch_values(self, values: list[Scalar]):
         self.set_values_for(EntityClass.BRANCHES, values)
 
-    def set_observation_values(self, values: list):
+    def set_observation_values(self, values: list[Scalar]):
         self.set_values_for(EntityClass.OBSERVATIONS, values)
 
-    def set_player_values(self, values: list):
+    def set_player_values(self, values: list[Scalar]):
         self.set_values_for(EntityClass.PLAYERS, values)
 
     def unset_state_values(self):
@@ -141,7 +141,7 @@ class Annotation:
     def unset_player_values(self):
         self.unset_values_for(EntityClass.PLAYERS)
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, Annotation):
             return False
         return (
@@ -155,19 +155,13 @@ class Annotation:
         """Infer the common data type of annotation values."""
         types: set[ScalarType] = set()
         for values in self._entity_class_to_values.values():
-            types.add(common_collection_element_type(values))
+            types.add(collection_promotion_type(values))
         if len(types) == 0:
             raise ValueError("Annotation has no values to infer type from")
-        return common_scalar_type(types)
+        return scalar_promotion_type(types)
 
     def validate(self):
         """Validate the annotation data."""
-        if not isinstance(self.name, str):
-            raise ValueError("name must be a string")
-        if not isinstance(self.alias, (str, type(None))):
-            raise ValueError("alias must be a string or None")
-        if not isinstance(self.description, (str, type(None))):
-            raise ValueError("description must be a string or None")
         return
 
 
@@ -184,7 +178,6 @@ class RewardAnnotation(Annotation):
 
     def validate(self):
         super().validate()
-        # Additional validation for reward annotations can be added here
         type = self.get_common_type()
         if not isinstance(type, NumericType):
             raise ValueError(f"Reward annotation type must be NumericType, got {type}")
@@ -199,7 +192,6 @@ class AtomicPropositionAnnotation(Annotation):
 
     def validate(self):
         super().validate()
-        # Additional validation for AP annotations can be added here
         type = self.get_common_type()
         if type != PrimitiveType.BOOL:
             raise ValueError(f"AP annotation type must be PrimitiveType.BOOL, got {type}")
@@ -225,18 +217,18 @@ class ObservationAnnotation(Annotation):
         return next(iter(self.entity_classes))
 
     @property
-    def values(self) -> list:
+    def values(self) -> list[int]:
         """Get the values for the entity class of this observation annotation."""
-        return self.get_values_for(self.entity_class)
+        return cast(list[int], self.get_values_for(self.entity_class))
 
-    def set_values_for(self, entity_class: EntityClass, values: list):
+    def set_values_for(self, entity_class: EntityClass, values: Sequence[Scalar]) -> None:
         if self.has_values and entity_class != self.entity_class:
             raise ValueError("Observation annotation can only have values for one entity class")
         return super().set_values_for(entity_class, values)
 
     def validate(self) -> None:
         super().validate()
-        if not (isinstance(self.num_observations, int) and 0 < self.num_observations):
+        if not (0 < self.num_observations):
             raise ValueError(f"num_observations must be a positive integer, got {self.num_observations}")
         if self.get_common_type() != NumericPrimitiveType.INT:
             raise ValueError(f"Observation annotation type must be INT, got {self.get_common_type()}")
@@ -244,5 +236,7 @@ class ObservationAnnotation(Annotation):
             if not 0 <= obs < self.num_observations:  # type: ignore
                 raise ValueError(f"observation mapping[{item}] = {obs} is out of range [0, {self.num_observations})")
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, ObservationAnnotation):
+            return False
         return super().__eq__(other) and self.num_observations == other.num_observations

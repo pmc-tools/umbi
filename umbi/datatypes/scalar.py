@@ -2,8 +2,10 @@
 Scalar encompasses primitive and numeric types.
 """
 
+from collections.abc import Collection
+
 from .primitive import Primitive, PrimitiveType, primitive_type_of
-from .numeric import NumericType, Numeric, numeric_type_of, common_numeric_type, promote_numeric_to
+from .numeric import NumericType, Numeric, numeric_type_of, numeric_promotion_type, promote_numeric_to
 
 """ Alias for names of scalar types. """
 ScalarType = PrimitiveType | NumericType
@@ -20,20 +22,21 @@ def scalar_type_of(value: Scalar) -> ScalarType:
         return numeric_type_of(value)
 
 
-def common_scalar_type(types: set[ScalarType]) -> ScalarType:
+def scalar_promotion_type(types: Collection[ScalarType]) -> ScalarType:
     """
     Determine the common type from a set of types. Used for type promotion.
     Rules: bool -> Numeric -> string
     """
-    assert len(types) > 0, "cannot determine common type of empty set"
-    assert all(isinstance(t, ScalarType) for t in types), f"non-common types found in set: {types}"
+    if len(types) == 0:
+        raise ValueError("cannot determine common type of empty set")
     if PrimitiveType.STRING in types:
         return PrimitiveType.STRING
     if PrimitiveType.BOOL in types:
         if len(types) == 1:
             return PrimitiveType.BOOL
-        types.remove(PrimitiveType.BOOL)
-    return common_numeric_type(types)  # type: ignore
+        types = {t for t in types if t != PrimitiveType.BOOL}
+    # assert all(isinstance(t, NumericType) for t in types), f"non-numeric types found in set: {types}"
+    return numeric_promotion_type(types)  # type: ignore
 
 
 def promote_scalar_to(value: Scalar, target_type: ScalarType) -> Scalar:

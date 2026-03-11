@@ -10,7 +10,7 @@ from .annotations import (
 )
 from .explicit_ats import ExplicitAts, TimeType
 from .model_info import ModelInfo
-from .variable_valuations import Variable, VariableValuations, EntityValuations, EntityClassValuations
+from .variable_valuations import Variable, VariableValuations, EntityValuation, EntityValuations, EntityClassValuations
 from .entity_class import EntityClass
 
 __all__ = [
@@ -27,6 +27,7 @@ __all__ = [
     # variable_valuations
     "Variable",
     "VariableValuations",
+    "EntityValuation",
     "EntityValuations",
     "EntityClassValuations",
     # entity_class

@@ -1,6 +1,6 @@
 """
 Primitive scalar datatypes.
-#TODO: expand to JSONs?
+#TODO: introduce StringType to include strings and jsons?
 """
 
 import enum
@@ -23,8 +23,3 @@ def primitive_type_of(value: Primitive) -> PrimitiveType:
         return PrimitiveType.BOOL
     else:  # isinstance(value, str):
         return PrimitiveType.STRING
-
-
-# def is_of_atomic_type(value: object, type: PrimitiveType) -> bool:
-#     """Check if a value is an instance of the given atomic type."""
-#     return primitive_type_of(value) == type

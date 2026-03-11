@@ -7,7 +7,7 @@ from typing import Any, Literal, Type
 
 from marshmallow import fields, validate
 
-from umbi.datatypes import SizedType
+from umbi.binary import SizedType
 
 from .type import SizedTypeSchema
 

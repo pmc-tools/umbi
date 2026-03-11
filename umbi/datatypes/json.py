@@ -2,7 +2,6 @@
 JSON operations and utilities.
 """
 
-from typing import Any
 import json as std_json
 
 JsonPrimitive = None | bool | int | float | str
@@ -30,7 +29,7 @@ def json_remove_none_dict_values(json_obj: JsonLike) -> JsonLike:
     return json_obj
 
 
-def json_to_string(json_obj: JsonLike, indent: int | None = 2, **kwargs: Any) -> str:
+def json_to_string(json_obj: JsonLike, indent: int | None = 2, **kwargs) -> str:
     """
     :raises: JSONEncodeError if the object is not serializable
     """

@@ -1,5 +1,5 @@
 """
-umbi.io: Utilities for binary and JSON serialization, and tar archive handling.
+umbi.io: Utilities for (de)serializating umfiles and ATSs.
 """
 
 from .umb import read_umb, write_umb

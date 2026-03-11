@@ -9,7 +9,7 @@ from marshmallow import fields, validate
 
 from .type import SizedTypeSchema
 
-from umbi.datatypes import SizedType
+from umbi.binary import SizedType
 
 from .json_schema import (
     JsonSchema,
@@ -44,7 +44,7 @@ class TransitionSystemSchema(JsonSchema):
     observation_probability_type = fields.Nested(
         SizedTypeSchema, data_key="observation-probability-type", required=False
     )
-    player_names = fields.List(fields.String(), data_key="player-names", required=False)
+    player_to_name = fields.List(fields.String(), data_key="player-names", required=False)
 
     @classmethod
     def schema_class(cls) -> type:
@@ -69,7 +69,7 @@ class TransitionSystem(JsonSchemaResult):
     branch_probability_type: SizedType | None = None
     exit_rate_type: SizedType | None = None
     observation_probability_type: SizedType | None = None
-    player_names: list[str] | None = None
+    player_to_name: list[str] | None = None
 
     @classmethod
     def class_schema(cls) -> Type:

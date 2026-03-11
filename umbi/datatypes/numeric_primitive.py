@@ -42,7 +42,7 @@ def numeric_primitive_type_of(value: NumericPrimitive) -> NumericPrimitiveType:
         return NumericPrimitiveType.RATIONAL
 
 
-def common_numeric_primitive_type(types: set[NumericPrimitiveType]) -> NumericPrimitiveType:
+def numeric_primitive_promotion_type(types: set[NumericPrimitiveType]) -> NumericPrimitiveType:
     """Determine the common numeric type from a set of numeric types. Used for type promotion."""
     assert len(types) > 0, "cannot determine common numeric type of empty set"
     assert all(isinstance(t, NumericPrimitiveType) for t in types), f"non-numeric types found in set: {types}"

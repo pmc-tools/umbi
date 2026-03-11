@@ -1,36 +1,12 @@
 import logging
-from typing import Iterable
-from umbi.datatypes import (
-    Scalar,
-    ScalarType,
-    collection_element_types,
-    common_scalar_type,
-)
+from umbi.datatypes import Scalar
 
 logger = logging.getLogger(__name__)
 
-
-class TypedIterable(Iterable[Scalar]):
-    """An iterable that can infer additional type information about its elements."""
-
-    @property
-    def types(self) -> set[ScalarType]:
-        """Collect the data types of the values in the mapping."""
-        return collection_element_types(self)
-
-    @property
-    def type(self) -> ScalarType:
-        """
-        Infer the common data type of the values.
-        :raise ValueError: if the iterable is empty
-        :note: promotion rules: PrimitiveType.BOOL -> NumericType -> PrimitiveType.STRING
-        """
-        if len(self.types) == 0:
-            raise ValueError("Cannot determine common type of an empty collection.")
-        return common_scalar_type(self.types)
+# from collections.abc import Collection
 
 
-class Domain(set[Scalar], TypedIterable):
+class Domain(set[Scalar]):
     """
     A set of values with additional information about the range. The collection can be freely modified, calling sort()
     caches the sorted domain.

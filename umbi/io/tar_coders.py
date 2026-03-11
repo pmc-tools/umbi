@@ -2,6 +2,8 @@ import logging
 
 import umbi.binary
 import umbi.datatypes
+from umbi.binary.sized_type import SizedType, BOOL1, UINT64
+from .utils import csr_to_ranges
 
 from .tar import TarReader, TarWriter
 
@@ -11,7 +13,7 @@ logger = logging.getLogger(__name__)
 class TarDecoder(TarReader):
     """An auxiliary class to simplify reading files of specific types from a tarball."""
 
-    def read_vector(self, filename: str, sized_type: umbi.datatypes.SizedType, required: bool = False) -> list | None:
+    def read_vector(self, filename: str, sized_type: SizedType, required: bool = False) -> list | None:
         """
         Read a file as a vector of values.
         :param filename: name of the file to read
@@ -36,7 +38,7 @@ class TarDecoder(TarReader):
 
     def read_bitvector(self, filename: str, num_entries: int | None) -> list[bool]:
         """Read a bitvector and truncate it to num_entries if necessary."""
-        vector = self.read_vector(filename, umbi.datatypes.BOOL1, required=True)
+        vector = self.read_vector(filename, BOOL1, required=True)
         assert isinstance(vector, list)
         if num_entries is not None:
             vector = self.truncate_bitvector(vector, num_entries)
@@ -55,10 +57,10 @@ class TarDecoder(TarReader):
         data = self.read_file(filename, required)
         if data is None:
             return None
-        chunk_csr = self.read_vector(filename_csr, umbi.datatypes.UINT64, required=True)
+        chunk_csr = self.read_vector(filename_csr, UINT64, required=True)
         assert chunk_csr is not None
-        chunk_ranges = umbi.datatypes.csr_to_ranges(chunk_csr)
-        return umbi.binary.bytes_with_csr_to_vector(data, value_type, chunk_ranges=chunk_ranges)
+        chunk_ranges = csr_to_ranges(chunk_csr)
+        return umbi.binary.bytes_with_ranges_to_vector(data, value_type, chunk_ranges=chunk_ranges)
 
     def read_strings(self, filename: str, required: bool, filename_csr: str) -> list[str] | None:
         """
@@ -71,9 +73,7 @@ class TarDecoder(TarReader):
 
 
 class TarEncoder(TarWriter):
-    def add_vector(
-        self, filename: str, sized_type: umbi.datatypes.SizedType, vector: list | None, required: bool = False
-    ):
+    def add_vector(self, filename: str, sized_type: SizedType, vector: list | None, required: bool = False):
         """
         Add a file containing a vector of values.
         :param filename: name of the file to add
@@ -111,12 +111,12 @@ class TarEncoder(TarWriter):
         """
         if vector is not None and pad_to_8_bytes:
             vector = self.pad_bitvector(vector, 8)
-        self.add_vector(filename, umbi.datatypes.BOOL1, vector, required)
+        self.add_vector(filename, BOOL1, vector, required)
 
     def add_vector_with_csr(
         self,
         filename: str,
-        sized_type: umbi.datatypes.SizedType,
+        sized_type: SizedType,
         vector: list | None,
         filename_csr: str,
         required: bool = False,
@@ -133,10 +133,10 @@ class TarEncoder(TarWriter):
             if required:
                 raise ValueError(f"missing required data for {filename}")
             return
-        data_out, chunk_csr = umbi.binary.vector_to_bytes_with_csr(vector, sized_type)
+        data_out, chunk_csr = umbi.binary.vector_to_bytes_with_ranges(vector, sized_type)
         self.add_file(filename, data_out)
         if chunk_csr is not None:
-            self.add_vector(filename_csr, umbi.datatypes.UINT64, chunk_csr, required=True)
+            self.add_vector(filename_csr, UINT64, chunk_csr, required=True)
 
     def add_strings(self, filename: str, vector: list[str] | None, filename_csr: str, required: bool = False):
         """
@@ -147,5 +147,5 @@ class TarEncoder(TarWriter):
         :param required: if True, raise an error if vector is None
         """
         self.add_vector_with_csr(
-            filename, umbi.datatypes.SizedType(umbi.datatypes.PrimitiveType.STRING), vector, filename_csr, required
+            filename, SizedType(umbi.datatypes.PrimitiveType.STRING), vector, filename_csr, required
         )

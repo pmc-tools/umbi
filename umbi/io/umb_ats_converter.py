@@ -1,5 +1,4 @@
 import pathlib
-import time
 
 import umbi.umb
 import umbi.umb.index
@@ -8,19 +7,9 @@ import umbi.datatypes
 import umbi.version
 
 from umbi.umb import ExplicitUmb
-from umbi.datatypes import SizedType
+from umbi.binary import SizedType
 
 from .umb import read_umb, write_umb
-
-
-def umbi_file_data() -> umbi.umb.index.FileData:
-    """Generate UMB file data for use in umb files created by umbi."""
-    return umbi.umb.index.FileData(
-        tool=umbi.version.__toolname__,
-        tool_version=umbi.version.__version__,
-        creation_date=int(time.time()),
-        # parameters=parameters,
-    )
 
 
 def explicit_umb_to_explicit_ats(umb: ExplicitUmb) -> umbi.ats.ExplicitAts:
@@ -50,7 +39,7 @@ def explicit_umb_to_explicit_ats(umb: ExplicitUmb) -> umbi.ats.ExplicitAts:
     ats.num_choice_actions = ts.num_choice_actions
     ats.num_branches = ts.num_branches
     ats.num_branch_actions = ts.num_branch_actions
-    ats.player_to_name = ts.player_names
+    ats.player_to_name = ts.player_to_name
 
     ## values
     ats.state_is_initial = umb.state_is_initial
@@ -137,7 +126,7 @@ def explicit_ats_to_explicit_umb(ats: umbi.ats.ExplicitAts) -> ExplicitUmb:
         # insert our format_version, format_revision, file data
         format_version=umbi.version.__format_version__,
         format_revision=umbi.version.__format_revision__,
-        file_data=umbi_file_data(),
+        file_data=umbi.umb.index.umbi_file_data(),
         # add model data
         model_data=(
             umbi.umb.index.ModelData(
@@ -166,7 +155,7 @@ def explicit_ats_to_explicit_umb(ats: umbi.ats.ExplicitAts) -> ExplicitUmb:
             branch_probability_type=None,  # for now
             exit_rate_type=None,  # for now
             observation_probability_type=None,  # for now
-            player_names=ats.player_to_name,
+            player_to_name=ats.player_to_name,
         ),
         # create annotations
         annotations=None,  # for now
@@ -183,24 +172,20 @@ def explicit_ats_to_explicit_umb(ats: umbi.ats.ExplicitAts) -> ExplicitUmb:
     umb.state_is_markovian = ats.state_is_markovian
     if ats.state_to_exit_rate is not None:
         # promote all to common type
-        target_type = umbi.datatypes.common_collection_element_type(ats.state_to_exit_rate)
+        target_type, vector = umbi.datatypes.promote_vector(ats.state_to_exit_rate)
         assert isinstance(target_type, umbi.datatypes.NumericType), "exit rates must be numeric"
-        # do we need to promote ints?
-        # if target_type == NumericPrimitiveType.INT:
-        #     # implicit promotion of int to double
-        #     target_type = NumericPrimitiveType.DOUBLE
         umb.index.transition_system.exit_rate_type = SizedType(type=target_type)
-        umb.state_to_exit_rate = umbi.datatypes.promote_vector_to(ats.state_to_exit_rate, target_type)  # type: ignore
+        umb.state_to_exit_rate = vector  # type: ignore
 
     umb.choice_to_branches = ats.choice_to_branches
     umb.branch_to_target = ats.branch_to_target
 
     if ats.branch_to_probability is not None:
         # promote
-        target_type = umbi.datatypes.common_collection_element_type(ats.branch_to_probability)
+        target_type, vector = umbi.datatypes.promote_vector(ats.branch_to_probability)
         assert isinstance(target_type, umbi.datatypes.NumericType), "branch probabilities must be numeric"
         umb.index.transition_system.branch_probability_type = SizedType(type=target_type)
-        umb.branch_to_probability = umbi.datatypes.promote_vector_to(ats.branch_to_probability, target_type)  # type: ignore
+        umb.branch_to_probability = vector  # type: ignore
 
     umb.choice_to_choice_action = ats.choice_to_choice_action
     umb.choice_action_to_string = ats.choice_action_to_name
@@ -230,7 +215,7 @@ def explicit_ats_to_explicit_umb(ats: umbi.ats.ExplicitAts) -> ExplicitUmb:
             umb.annotations[category][name] = dict[str, list]()
             for entity_class in ats_annotation.entity_classes:
                 values = ats_annotation._entity_class_to_values[entity_class]
-                values = umbi.datatypes.promote_vector_to(values, target_type)  # type: ignore
+                values = umbi.datatypes.promote_vector_to(values, target_type)
                 umb.annotations[category][name][entity_class.value] = values
 
     # add valuations
@@ -239,23 +224,32 @@ def explicit_ats_to_explicit_umb(ats: umbi.ats.ExplicitAts) -> ExplicitUmb:
         umb.valuations = {}
         for entity_class, entity_valuations in ats.variable_valuations.items():
             applies_to = entity_class.value
-            valuation_class = umbi.datatypes.StructType()
+            valuation_class = umbi.binary.StructType()
+
+            # promote values for each variable to a common type
+            # calculate the required bitsize
+            var_values = {}
             for var in entity_valuations.variables:
+                values = entity_valuations.get_variable_valuations(var).values
+                assert None not in values, "valuation variables cannot have None values"
+                target_type, values = umbi.datatypes.promote_vector(values)  # type: ignore
+                var_values[var] = values
+                num_bits = umbi.binary.sized_type.max_num_bits_for_sequence_element(values, target_type)
                 valuation_class.add_attribute(
                     name=var.name,
-                    sized_type=SizedType(type=var.type),  # TODO deduce non-default size from the values
+                    sized_type=SizedType(type=var.promotion_type, size_bits=num_bits),
                 )
             valuation_class.pad_to_byte()
             valuation_description = umbi.umb.index.ValuationDescription(
-                unique=False,  # TODO add later
+                unique=False,  # for now
                 num_strings=None,  # TODO add later
                 classes=[valuation_class],
             )
+            valuation_description.unique = entity_valuations.has_distinct_valuations
             umb.index.valuations[applies_to] = valuation_description
             umb.valuations[applies_to] = []
             for entity in range(entity_valuations.num_entities):
-                valuations = entity_valuations.get_entity_valuation(entity)
-                valuations = {var.name: value for var, value in valuations.items()}
+                valuations = {var.name: var_values[var][entity] for var in entity_valuations.variables}
                 umb.valuations[applies_to].append(valuations)
 
     # add observations
@@ -266,6 +260,9 @@ def explicit_ats_to_explicit_umb(ats: umbi.ats.ExplicitAts) -> ExplicitUmb:
 
     umb.validate()
     return umb
+
+
+# API
 
 
 def read_ats(umbpath: str | pathlib.Path) -> umbi.ats.ExplicitAts:

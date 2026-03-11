@@ -11,7 +11,8 @@ import umbi.datatypes
 import umbi.umb.index
 
 from umbi.umb import ExplicitUmb
-from umbi.datatypes import UINT32, UINT64, PrimitiveType
+from umbi.binary.sized_type import UINT32, UINT64
+from umbi.datatypes import PrimitiveType
 from .tar_coders import TarDecoder, TarEncoder
 
 
@@ -61,7 +62,7 @@ class UmbReader(TarDecoder):
     def read_index_file(self, umb: ExplicitUmb):
         json_bytes = self.read_file(UmbFile.INDEX.value, required=True)
         assert json_bytes is not None
-        json_str = umbi.binary.bytes_to_value(json_bytes, PrimitiveType.STRING)
+        json_str = umbi.binary.bytes_to_scalar(json_bytes, PrimitiveType.STRING)
         assert isinstance(json_str, str)
         json_obj = umbi.datatypes.string_to_json(json_str)
         pretty_str = umbi.datatypes.json_to_string(json_obj)
@@ -231,7 +232,7 @@ class UmbReader(TarDecoder):
         assert bytes is not None, "expected non-None bytes"
         expected_size = struct_type.size_bytes * num_entries
         assert len(bytes) == expected_size, (
-            f"valuation data length does not match expected size for {applies_to}: got {len(bytes)}, expected {expected_size}"
+            f"valuation data length does not match expected size: got {len(bytes)}, expected #num_{applies_to}*(struct_size_bytes)={num_entries}*{struct_type.size_bytes} = {expected_size}"
         )
         valuations = umbi.binary.bytes_to_vector(bytes, struct_type)
         assert umb.valuations is not None, "umb.valuations must have been initialized"
@@ -268,7 +269,7 @@ class UmbWriter(TarEncoder):
         umb.index.validate()
         json_obj = umb.index.to_json()
         json_str = umbi.datatypes.json_to_string(json_obj)
-        json_bytes = umbi.binary.value_to_bytes(json_str, umbi.datatypes.SizedType(PrimitiveType.STRING))
+        json_bytes = umbi.binary.scalar_to_bytes(json_str, PrimitiveType.STRING)
         self.add_file(UmbFile.INDEX.value, json_bytes)
 
     def add_state_files(self, umb: ExplicitUmb):
@@ -278,9 +279,14 @@ class UmbWriter(TarEncoder):
         if umb.index.transition_system.num_players > 0:
             self.add_vector(UmbFile.STATE_TO_PLAYER.value, UINT32, umb.state_to_player)
 
+        if umb.index.transition_system.time == "urgent-stochastic":
+            state_is_markovian = (
+                umb.state_is_markovian
+                if umb.state_is_markovian is not None
+                else [True] * umb.index.transition_system.num_states
+            )
+            self.add_bitvector(UmbFile.STATE_IS_MARKOVIAN.value, state_is_markovian)
         if umb.index.transition_system.time != "discrete":
-            assert umb.state_is_markovian is not None, "state_is_markovian must be specified"
-            self.add_bitvector(UmbFile.STATE_IS_MARKOVIAN.value, umb.state_is_markovian)
             if umb.index.transition_system.exit_rate_type is not None:
                 self.add_vector(
                     UmbFile.STATE_TO_EXIT_RATE.value,
@@ -432,6 +438,8 @@ def read_umb(umbpath: str | pathlib.Path) -> ExplicitUmb:
     return UmbReader(umbpath).read_umb()
 
 
-def write_umb(umb: ExplicitUmb, umbpath: str | pathlib.Path):
+def write_umb(umb: ExplicitUmb, umbpath: str | pathlib.Path, replace_file_data: bool = True):
     """Write ExplicitUmb to a umbfile."""
+    if replace_file_data:
+        umb.index.file_data = umbi.umb.index.umbi_file_data()
     UmbWriter().write_umb(umb, umbpath)
