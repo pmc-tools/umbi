@@ -1,6 +1,4 @@
-"""
-(De)serialization of sequences of common types or structs.
-"""
+"""(De)serialization of sequences of common types or structs."""
 
 import logging
 from collections.abc import Sequence

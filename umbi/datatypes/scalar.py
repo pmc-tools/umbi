@@ -2,8 +2,10 @@
 
 from .primitive import Primitive, PrimitiveType, primitive_type_of
 from .numeric import NumericType, Numeric, numeric_type_of, numeric_promotion_type, promote_numeric_to
-from typing import TypeAlias
-from collections.abc import Iterable, Collection, Sequence
+from .numeric_primitive import NumericPrimitive, NumericPrimitiveType
+from .interval import Interval, IntervalType
+from typing import TypeAlias, TypeVar
+from collections.abc import Callable, Collection, Iterable, Sequence
 
 
 #: Scalar type: either primitive or numeric.
@@ -13,7 +15,37 @@ ScalarType: TypeAlias = PrimitiveType | NumericType
 Scalar: TypeAlias = Primitive | Numeric
 
 
-# Determining scalar type.
+# Dispatcher for scalar type-specific operations. Handlers are expected to be functions that take the specific type as an argument (e.g. on_primitive is expected to be a function that takes a PrimitiveType as an argument).
+
+# Return type for dispatcher handlers
+T = TypeVar("T")
+
+
+def scalar_type_dispatch(
+    value_type: ScalarType,
+    *,
+    on_primitive: Callable[[PrimitiveType], T],
+    on_numeric: Callable[[NumericPrimitiveType], T],
+    on_interval: Callable[[IntervalType], T],
+) -> T:
+    """Route to appropriate handler based on value_type.
+
+    :param value_type: the scalar type to dispatch on
+    :param on_primitive: handler for PrimitiveType
+    :param on_numeric: handler for NumericPrimitiveType
+    :param on_interval: handler for IntervalType
+    :return: result from the appropriate handler
+    """
+    if isinstance(value_type, PrimitiveType):
+        return on_primitive(value_type)
+    elif isinstance(value_type, NumericPrimitiveType):
+        return on_numeric(value_type)
+    else:  # IntervalType
+        # assert isinstance(value_type, IntervalType), f"unexpected type: {value_type}"
+        return on_interval(value_type)
+
+
+# Determining scalar type
 
 
 def scalar_type_of(value: Scalar) -> ScalarType:
@@ -29,7 +61,32 @@ def scalar_types_of(scalars: Iterable[Scalar]) -> set[ScalarType]:
     return {scalar_type_of(s) for s in scalars}
 
 
-# Determining promotion type.
+# Checking scalar value type
+
+
+def validate_scalar_value_type(value: Scalar, value_type: ScalarType) -> None:
+    """Validate that scalar value matches the scalar type."""
+
+    def validate_primitive_instance(value_type: PrimitiveType) -> None:
+        assert isinstance(value, Primitive), f"expected Primitive for type {value_type}, got {type(value)}"
+
+    def validate_numeric_primitive_instance(value_type: NumericPrimitiveType) -> None:
+        assert isinstance(value, NumericPrimitive), (
+            f"expected NumericPrimitive for type {value_type}, got {type(value)}"
+        )
+
+    def validate_interval_instance(value_type: IntervalType) -> None:
+        assert isinstance(value, Interval), f"expected Interval for type {value_type}, got {type(value)}"
+
+    scalar_type_dispatch(
+        value_type,
+        on_primitive=validate_primitive_instance,
+        on_numeric=validate_numeric_primitive_instance,
+        on_interval=validate_interval_instance,
+    )
+
+
+# Determining promotion type
 
 
 def scalar_promotion_type(types: Collection[ScalarType]) -> ScalarType:
@@ -55,7 +112,7 @@ def scalar_promotion_type_of(collection: Iterable[Scalar]) -> ScalarType:
     return scalar_promotion_type(scalar_types_of(collection))
 
 
-# Promotion operations.
+# Promotion operations
 
 
 def promote_scalar_to(value: Scalar, target_type: ScalarType) -> Scalar:

@@ -147,5 +147,5 @@ class TarEncoder(TarWriter):
         :param required: if True, raise an error if vector is None
         """
         self.add_vector_with_csr(
-            filename, SizedType(umbi.datatypes.PrimitiveType.STRING), vector, filename_csr, required
+            filename, SizedType.for_type(umbi.datatypes.PrimitiveType.STRING), vector, filename_csr, required
         )

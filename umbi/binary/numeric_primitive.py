@@ -2,15 +2,11 @@
 
 import struct
 from fractions import Fraction
-
 from bitstring import BitArray
-
 from umbi.datatypes import NumericPrimitive, NumericPrimitiveType
-
 from .utils import split_bits_half, split_bytes_half
 
-
-# Double
+# Floats
 
 
 def bytes_to_double(data: bytes, little_endian: bool = True) -> float:
@@ -96,7 +92,6 @@ def rational_to_bytes(value: Fraction, num_bytes: int, little_endian: bool = Tru
     value = normalize_rational(value)
     assert num_bytes % 2 == 0, "num_bytes must be even to encode both numerator and denominator"
     term_size_bytes = num_bytes // 2
-    # assuming term_size_bytes is large enough to encode the numerator and denominator
     numerator_bytes = integer_to_bytes(
         value.numerator, num_bytes=term_size_bytes, signed=True, little_endian=little_endian
     )
@@ -133,10 +128,10 @@ def rational_to_bits(value: Fraction, num_bits: int) -> BitArray:
 def bytes_to_numeric_primitive(data: bytes, value_type: NumericPrimitiveType, little_endian: bool = True):
     """Convert a bytestring to a numeric primitive value."""
     return {
-        NumericPrimitiveType.INT: lambda d: bytes_to_integer(d, signed=True, little_endian=little_endian),
-        NumericPrimitiveType.UINT: lambda d: bytes_to_integer(d, signed=False, little_endian=little_endian),
-        NumericPrimitiveType.DOUBLE: lambda d: bytes_to_double(d, little_endian=little_endian),
-        NumericPrimitiveType.RATIONAL: lambda d: bytes_to_rational(d, little_endian=little_endian),
+        NumericPrimitiveType.INT: lambda b: bytes_to_integer(b, signed=True, little_endian=little_endian),
+        NumericPrimitiveType.UINT: lambda b: bytes_to_integer(b, signed=False, little_endian=little_endian),
+        NumericPrimitiveType.DOUBLE: lambda b: bytes_to_double(b, little_endian=little_endian),
+        NumericPrimitiveType.RATIONAL: lambda b: bytes_to_rational(b, little_endian=little_endian),
     }[value_type](data)
 
 
@@ -170,11 +165,3 @@ def numeric_primitive_to_bits(value: NumericPrimitive, value_type: NumericPrimit
         NumericPrimitiveType.DOUBLE: double_to_bits,
         NumericPrimitiveType.RATIONAL: lambda v: rational_to_bits(v, num_bits),
     }[value_type](value)
-
-
-__all__ = [
-    "bytes_to_numeric_primitive",
-    "numeric_primitive_to_bytes",
-    "bits_to_numeric_primitive",
-    "numeric_primitive_to_bits",
-]

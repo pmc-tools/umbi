@@ -174,7 +174,7 @@ def explicit_ats_to_explicit_umb(ats: umbi.ats.ExplicitAts) -> ExplicitUmb:
         # promote all to common type
         target_type, vector = umbi.datatypes.promote_scalars(ats.state_to_exit_rate)
         assert isinstance(target_type, umbi.datatypes.NumericType), "exit rates must be numeric"
-        umb.index.transition_system.exit_rate_type = SizedType(type=target_type)
+        umb.index.transition_system.exit_rate_type = SizedType.for_type(target_type)
         umb.state_to_exit_rate = vector  # type: ignore
 
     umb.choice_to_branches = ats.choice_to_branches
@@ -184,7 +184,7 @@ def explicit_ats_to_explicit_umb(ats: umbi.ats.ExplicitAts) -> ExplicitUmb:
         # promote
         target_type, vector = umbi.datatypes.promote_scalars(ats.branch_to_probability)
         assert isinstance(target_type, umbi.datatypes.NumericType), "branch probabilities must be numeric"
-        umb.index.transition_system.branch_probability_type = SizedType(type=target_type)
+        umb.index.transition_system.branch_probability_type = SizedType.for_type(target_type)
         umb.branch_to_probability = vector  # type: ignore
 
     umb.choice_to_choice_action = ats.choice_to_choice_action
@@ -207,7 +207,7 @@ def explicit_ats_to_explicit_umb(ats: umbi.ats.ExplicitAts) -> ExplicitUmb:
                 alias=ats_annotation.alias,
                 description=ats_annotation.description,
                 applies_to=[entity_class.value for entity_class in ats_annotation.entity_classes],  # type: ignore
-                type=SizedType(type=target_type),
+                type=SizedType.for_type(target_type),
                 lower=None,  # TODO add later
                 upper=None,  # TODO add later
             )
@@ -234,7 +234,7 @@ def explicit_ats_to_explicit_umb(ats: umbi.ats.ExplicitAts) -> ExplicitUmb:
                 assert None not in values, "valuation variables cannot have None values"
                 target_type, values = umbi.datatypes.promote_scalars(values)  # type: ignore
                 var_values[var] = values
-                num_bits = umbi.binary.sized_type.max_num_bits_for_sequence_element(values, target_type)
+                num_bits = umbi.binary.max_num_bits_for_collection_element(values, target_type)
                 valuation_class.add_attribute(
                     name=var.name,
                     sized_type=SizedType(type=var.promotion_type, size_bits=num_bits),

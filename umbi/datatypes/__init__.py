@@ -18,7 +18,15 @@ from .primitive import PrimitiveType, Primitive
 from .numeric_primitive import NumericPrimitiveType, NumericPrimitive
 from .interval import IntervalType, Interval
 from .numeric import NumericType, Numeric
-from .scalar import ScalarType, Scalar, scalar_promotion_type_of, promote_scalars_to, promote_scalars
+from .scalar import (
+    ScalarType,
+    Scalar,
+    scalar_promotion_type_of,
+    promote_scalars_to,
+    promote_scalars,
+    scalar_type_dispatch,
+    validate_scalar_value_type,
+)
 from .json import (
     JsonPrimitive,
     JsonList,
@@ -49,6 +57,8 @@ __all__ = [
     "scalar_promotion_type_of",
     "promote_scalars_to",
     "promote_scalars",
+    "scalar_type_dispatch",
+    "validate_scalar_value_type",
     # json.py
     "JsonPrimitive",
     "JsonList",
