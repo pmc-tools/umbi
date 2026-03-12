@@ -1,23 +1,16 @@
-"""
-JSON operations and utilities.
-"""
+"""JSON datatype."""
 
 import json as std_json
+from typing import TypeAlias
 
-JsonPrimitive = None | bool | int | float | str
-JsonList = list["JsonLike"]
-JsonDict = dict[str, "JsonLike"]
-JsonLike = JsonPrimitive | JsonList | JsonDict
-
-
-def is_json_instance(value: object) -> bool:
-    if isinstance(value, (type(None), bool, int, float, str)):
-        return True
-    elif isinstance(value, list):
-        return all(is_json_instance(v) for v in value)
-    elif isinstance(value, dict):
-        return all(isinstance(k, str) and is_json_instance(v) for k, v in value.items())
-    return False
+#: JSON scalar values (`null`, boolean, number, string).
+JsonPrimitive: TypeAlias = None | bool | int | float | str
+#: JSON arrays.
+JsonList: TypeAlias = list["JsonLike"]
+#: JSON objects with string keys.
+JsonDict: TypeAlias = dict[str, "JsonLike"]
+#: Any valid JSON value.
+JsonLike: TypeAlias = JsonPrimitive | JsonList | JsonDict
 
 
 def json_remove_none_dict_values(json_obj: JsonLike) -> JsonLike:
@@ -29,9 +22,9 @@ def json_remove_none_dict_values(json_obj: JsonLike) -> JsonLike:
     return json_obj
 
 
-def json_to_string(json_obj: JsonLike, indent: int | None = 2, **kwargs) -> str:
+def json_to_string(json_obj: JsonLike, indent: int | str | None = 2, **kwargs) -> str:
     """
-    :raises: JSONEncodeError if the object is not serializable
+    :raises: TypeError if the object is not JSON-serializable
     """
     return std_json.dumps(json_obj, indent=indent, **kwargs)
 

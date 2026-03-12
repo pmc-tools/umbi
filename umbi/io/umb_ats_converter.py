@@ -172,7 +172,7 @@ def explicit_ats_to_explicit_umb(ats: umbi.ats.ExplicitAts) -> ExplicitUmb:
     umb.state_is_markovian = ats.state_is_markovian
     if ats.state_to_exit_rate is not None:
         # promote all to common type
-        target_type, vector = umbi.datatypes.promote_vector(ats.state_to_exit_rate)
+        target_type, vector = umbi.datatypes.promote_scalars(ats.state_to_exit_rate)
         assert isinstance(target_type, umbi.datatypes.NumericType), "exit rates must be numeric"
         umb.index.transition_system.exit_rate_type = SizedType(type=target_type)
         umb.state_to_exit_rate = vector  # type: ignore
@@ -182,7 +182,7 @@ def explicit_ats_to_explicit_umb(ats: umbi.ats.ExplicitAts) -> ExplicitUmb:
 
     if ats.branch_to_probability is not None:
         # promote
-        target_type, vector = umbi.datatypes.promote_vector(ats.branch_to_probability)
+        target_type, vector = umbi.datatypes.promote_scalars(ats.branch_to_probability)
         assert isinstance(target_type, umbi.datatypes.NumericType), "branch probabilities must be numeric"
         umb.index.transition_system.branch_probability_type = SizedType(type=target_type)
         umb.branch_to_probability = vector  # type: ignore
@@ -215,7 +215,7 @@ def explicit_ats_to_explicit_umb(ats: umbi.ats.ExplicitAts) -> ExplicitUmb:
             umb.annotations[category][name] = dict[str, list]()
             for entity_class in ats_annotation.entity_classes:
                 values = ats_annotation._entity_class_to_values[entity_class]
-                values = umbi.datatypes.promote_vector_to(values, target_type)
+                values = umbi.datatypes.promote_scalars_to(values, target_type)
                 umb.annotations[category][name][entity_class.value] = values
 
     # add valuations
@@ -232,7 +232,7 @@ def explicit_ats_to_explicit_umb(ats: umbi.ats.ExplicitAts) -> ExplicitUmb:
             for var in entity_valuations.variables:
                 values = entity_valuations.get_variable_valuations(var).values
                 assert None not in values, "valuation variables cannot have None values"
-                target_type, values = umbi.datatypes.promote_vector(values)  # type: ignore
+                target_type, values = umbi.datatypes.promote_scalars(values)  # type: ignore
                 var_values[var] = values
                 num_bits = umbi.binary.sized_type.max_num_bits_for_sequence_element(values, target_type)
                 valuation_class.add_attribute(

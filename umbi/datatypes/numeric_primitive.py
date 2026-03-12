@@ -1,35 +1,22 @@
-"""
-Numeric datatypes (integers, floats, rationals) that allow promotions.
-"""
+"""Numeric datatypes (integers, floats, rationals) that allow promotions."""
 
 import enum
 from fractions import Fraction
-
-""" Numeric primitive types. """
+from typing import TypeAlias
+from collections.abc import Collection
 
 
 class NumericPrimitiveType(str, enum.Enum):
+    """Numeric primitive types."""
+
     INT = "int"
     UINT = "uint"
     DOUBLE = "double"
     RATIONAL = "rational"
 
 
-""" Alias for primitive numeric objects. """
-NumericPrimitive = int | float | Fraction
-
-
-def is_integer_type(type: NumericPrimitiveType) -> bool:
-    return type in [NumericPrimitiveType.INT, NumericPrimitiveType.UINT]
-
-
-def assert_integer_type(type: NumericPrimitiveType):
-    assert is_integer_type(type), f"not an integer type: {type}"
-
-
-def integer_type_signed(type: NumericPrimitiveType) -> bool:
-    assert_integer_type(type)
-    return type == NumericPrimitiveType.INT
+#: Primitive numeric values (integers, floats, or rational numbers).
+NumericPrimitive: TypeAlias = int | float | Fraction
 
 
 def numeric_primitive_type_of(value: NumericPrimitive) -> NumericPrimitiveType:
@@ -42,10 +29,13 @@ def numeric_primitive_type_of(value: NumericPrimitive) -> NumericPrimitiveType:
         return NumericPrimitiveType.RATIONAL
 
 
-def numeric_primitive_promotion_type(types: set[NumericPrimitiveType]) -> NumericPrimitiveType:
-    """Determine the common numeric type from a set of numeric types. Used for type promotion."""
+def numeric_primitive_promotion_type(types: Collection[NumericPrimitiveType]) -> NumericPrimitiveType:
+    """
+    Determine the common numeric type from a set of numeric types. Used for type promotion.
+
+    :raises ValueError: if the set of types is empty
+    """
     assert len(types) > 0, "cannot determine common numeric type of empty set"
-    assert all(isinstance(t, NumericPrimitiveType) for t in types), f"non-numeric types found in set: {types}"
     if NumericPrimitiveType.RATIONAL in types:
         return NumericPrimitiveType.RATIONAL
     elif NumericPrimitiveType.DOUBLE in types:
@@ -60,6 +50,7 @@ def promote_numeric_primitive_to(value: NumericPrimitive, target_type: NumericPr
     """
     Promote a primitive numeric value to the target type.
     Promotion rules: int -> double -> rational
+    :raises ValueError: if value cannot be promoted to target type (e.g., promoting to INT)
     """
     if numeric_primitive_type_of(value) == target_type:
         return value

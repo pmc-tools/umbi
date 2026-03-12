@@ -1,5 +1,7 @@
 """Composite datatype definitions."""
 
+from typing import TypeAlias
+
 from umbi.datatypes import IntervalType, PrimitiveType, Scalar
 
 from .sized_type import SizedType, UINT64
@@ -12,8 +14,8 @@ from dataclasses import dataclass, field as dataclass_field
 
 # Struct type definitions
 
-# alias for instances of StructType, as a mapping from attribute names to (optional) values
-Struct = dict[str, Scalar | None]
+#: Instance of StructType, a mapping from attribute names to optional values.
+Struct: TypeAlias = dict[str, Scalar | None]
 
 
 @dataclass(frozen=True)
@@ -60,8 +62,8 @@ class StructAttribute:
         # TODO validate bounds for numeric types
 
 
-""" Alias for either struct field type """
-StructField = StructPadding | StructAttribute
+#: Either a padding or an attribute field in a struct type.
+StructField: TypeAlias = StructPadding | StructAttribute
 
 
 @dataclass

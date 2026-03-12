@@ -1,13 +1,11 @@
 from dataclasses import dataclass, field
 
 
-from umbi.datatypes import ScalarType, Scalar, NumericPrimitiveType, collection_promotion_type
-
+from umbi.datatypes import ScalarType, Scalar, NumericPrimitiveType, scalar_promotion_type_of
 from collections.abc import Iterable
-
 from .entity_class import EntityClass
-
 from .domain import Domain
+from typing import TypeAlias
 
 
 @dataclass
@@ -57,7 +55,7 @@ class Variable:
     def promotion_type(self) -> ScalarType:
         self._assert_domain_set()
         assert self._domain is not None
-        return collection_promotion_type(self._domain)
+        return scalar_promotion_type_of(self._domain)
 
     @property
     def lower(self) -> Scalar:
@@ -146,8 +144,8 @@ class VariableValuations:
         self._variable.validate()
 
 
-# alias for a mapping from variable to valuation for a single entity
-EntityValuation = dict[Variable, Scalar | None]
+#: Valuation of all variables for a single entity.
+EntityValuation: TypeAlias = dict[Variable, Scalar | None]
 
 
 @dataclass

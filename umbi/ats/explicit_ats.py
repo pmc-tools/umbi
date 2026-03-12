@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass, field, fields
 from enum import Enum
-from typing import Iterable
+from collections.abc import Iterable
 
 from umbi.datatypes import Numeric
 
