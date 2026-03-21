@@ -1,29 +1,74 @@
+from collections.abc import Sequence
 import logging
 
 import umbi.binary
+from umbi.binary import SizedType, BOOL1, UINT64
 import umbi.datatypes
-from umbi.binary.sized_type import SizedType, BOOL1, UINT64
-from .utils import csr_to_ranges
+from umbi.datatypes import PrimitiveType, Scalar, JsonLike
 
-from .tar import TarReader, TarWriter
+from .tar_file import TarFile
+from .utils import csr_to_ranges
 
 logger = logging.getLogger(__name__)
 
 
-class TarDecoder(TarReader):
-    """An auxiliary class to simplify reading files of specific types from a tarball."""
+class TarCoder(TarFile):
+    """Auxiliary class to simplify reading files of specific types from a tarball."""
+
+    def read_json(self, filename: str, required: bool = False) -> JsonLike | None:
+        """Read a JSON file from the tarball and parse it.
+
+        :param filename: name of the file to read
+        :param required: whether the file is required
+        :return: parsed JSON data, or None if the optional file is not found
+        :raises KeyError: if the required file is not found
+        :raises json.JSONDecodeError: if the file contents cannot be parsed as JSON
+        """
+        data = self.get_file(filename, required)
+        if data is None:
+            return None
+        json_str = umbi.binary.bytes_to_scalar(data, PrimitiveType.STRING)
+        assert isinstance(json_str, str)
+        json_obj = umbi.datatypes.string_to_json(json_str)
+        return json_obj
+
+    def add_json(self, filename: str, json_obj: JsonLike | None, required: bool = False):
+        """Add a JSON file."""
+        if json_obj is None:
+            if required:
+                raise ValueError(f"missing required data for {filename}")
+            return
+        json_str = umbi.datatypes.json_to_string(json_obj)
+        json_bytes = umbi.binary.scalar_to_bytes(json_str, PrimitiveType.STRING)
+        self.add_file(filename, json_bytes)
 
     def read_vector(self, filename: str, sized_type: SizedType, required: bool = False) -> list | None:
-        """
-        Read a file as a vector of values.
+        """Read a file as a vector of values.
+
         :param filename: name of the file to read
         :param sized_type: type of the values in the file
         :param required: if True, raise an error if the file is not found
         """
-        data = self.read_file(filename, required)
+        data = self.get_file(filename, required)
         if data is None:
             return None
         return umbi.binary.bytes_to_vector(data, sized_type)
+
+    def add_vector(self, filename: str, sized_type: SizedType, vector: Sequence[Scalar] | None, required: bool = False):
+        """Add a file containing a vector of values.
+
+        :param filename: name of the file to add
+        :param sized_type: type of the values
+        :param vector: vector to add
+        :param required: whether the file is required
+        :raise ValueError: if required is True and vector is None
+        """
+        if vector is None:
+            if required:
+                raise ValueError(f"missing required data for {filename}")
+            return
+        data_out = umbi.binary.vector_to_bytes(vector, sized_type)
+        self.add_file(filename, data_out)
 
     @staticmethod
     def truncate_bitvector(vector: list[bool], num_entries: int) -> list[bool]:
@@ -44,17 +89,17 @@ class TarDecoder(TarReader):
             vector = self.truncate_bitvector(vector, num_entries)
         return vector
 
-    def read_vector_with_csr(
+    def read_vector_with_ranges(
         self, filename: str, value_type: umbi.datatypes.ScalarType, required: bool, filename_csr: str
     ) -> list | None:
-        """
-        Read a file containing a vector of values while using an accompanying CSR.
+        """Read a file containing a vector using an accompanying CSR.
+
         :param filename: name of the main file to read
-        :param value_type: value type
+        :param value_type: vector element type
         :param required: if True, raise an error if the main file is not found
         :param filename_csr: name of the accompanying CSR file
         """
-        data = self.read_file(filename, required)
+        data = self.get_file(filename, required)
         if data is None:
             return None
         chunk_csr = self.read_vector(filename_csr, UINT64, required=True)
@@ -63,37 +108,19 @@ class TarDecoder(TarReader):
         return umbi.binary.bytes_with_ranges_to_vector(data, value_type, chunk_ranges=chunk_ranges)
 
     def read_strings(self, filename: str, required: bool, filename_csr: str) -> list[str] | None:
-        """
-        Read a file containing a vector of strings, using an accompanying CSR file.
+        """Read a file containing a vector of strings, using an accompanying CSR file.
         :param filename: name of the main file to read
         :param required: if True, raise an error if the main file is not found
         :param filename_csr: name of the accompanying CSR file
         """
-        return self.read_vector_with_csr(filename, umbi.datatypes.PrimitiveType.STRING, required, filename_csr)
-
-
-class TarEncoder(TarWriter):
-    def add_vector(self, filename: str, sized_type: SizedType, vector: list | None, required: bool = False):
-        """
-        Add a file containing a vector of values.
-        :param filename: name of the file to add
-        :param sized_type: type of the values
-        :param vector: vector to add
-        :param required: whether the file is required
-        :raise ValueError: if required is True and vector is None
-        """
-        if vector is None:
-            if required:
-                raise ValueError(f"missing required data for {filename}")
-            return
-        data_out = umbi.binary.vector_to_bytes(vector, sized_type)
-        self.add_file(filename, data_out)
+        return self.read_vector_with_ranges(filename, PrimitiveType.STRING, required, filename_csr)
 
     @staticmethod
-    def pad_bitvector(vector: list[bool], num_bytes: int) -> list[bool]:
+    def pad_bitvector(vector: Sequence[bool], num_bytes: int) -> list[bool]:
         """Pad a bitvector with False entries to make its length a multiple of num_bytes*8."""
         num_bits = num_bytes * 8
         items_to_add = (num_bits - (len(vector) % num_bits)) % num_bits
+        vector = list(vector)
         if items_to_add > 0:
             # logger.debug(
             #     f"padding bitvector with {items_to_add} False entries to align to a {num_bytes}-byte boundary"
@@ -101,9 +128,9 @@ class TarEncoder(TarWriter):
             vector = vector + [False] * items_to_add
         return vector
 
-    def add_bitvector(self, filename: str, vector: list[bool], required: bool = False, pad_to_8_bytes: bool = True):
-        """
-        Add a bitvector file.
+    def add_bitvector(self, filename: str, vector: Sequence[bool], required: bool = False, pad_to_8_bytes: bool = True):
+        """Add a bitvector file.
+
         :param filename: name of the file to add
         :param vector: bitvector data to write
         :param required: if True, raise an error if vector is None
@@ -113,18 +140,18 @@ class TarEncoder(TarWriter):
             vector = self.pad_bitvector(vector, 8)
         self.add_vector(filename, BOOL1, vector, required)
 
-    def add_vector_with_csr(
+    def add_vector_with_ranges(
         self,
         filename: str,
         sized_type: SizedType,
-        vector: list | None,
+        vector: Sequence[Scalar] | None,
         filename_csr: str,
         required: bool = False,
     ):
-        """
-        Add a file containing a vector of values, with an accompanying CSR file if needed.
+        """Add a file containing a vector, with an accompanying CSR file if needed.
+
         :param filename: name of the main file to add
-        :param sized_type: value type
+        :param sized_type: vector element type
         :param vector: vector data to write
         :param filename_csr: name of the accompanying CSR file
         :param required: if True, raise an error if vector is None
@@ -138,14 +165,24 @@ class TarEncoder(TarWriter):
         if chunk_csr is not None:
             self.add_vector(filename_csr, UINT64, chunk_csr, required=True)
 
-    def add_strings(self, filename: str, vector: list[str] | None, filename_csr: str, required: bool = False):
-        """
-        Add a file containing a vector of strings, using an accompanying CSR file.
+    def add_strings(self, filename: str, vector: Sequence[str] | None, filename_csr: str, required: bool = False):
+        """Add a file containing a vector of strings, using an accompanying CSR file.
+
         :param filename: name of the main file to add
         :param vector: list of strings to add
         :param filename_csr: name of the accompanying CSR file
         :param required: if True, raise an error if vector is None
         """
-        self.add_vector_with_csr(
-            filename, SizedType(umbi.datatypes.PrimitiveType.STRING), vector, filename_csr, required
+        self.add_vector_with_ranges(
+            filename, SizedType.for_type(umbi.datatypes.PrimitiveType.STRING), vector, filename_csr, required
         )
+
+    def file_to_string(self, filename: str) -> str:
+        if filename.endswith(".json"):
+            try:
+                json_obj = self.read_json(filename, required=True)
+                json_str = umbi.datatypes.json_to_string(json_obj, compact_formatting=False)
+                return f"{json_str}"
+            except Exception as e:
+                return f"invalid .json file, {type(e).__name__} error: {e}"
+        return super().file_to_string(filename)

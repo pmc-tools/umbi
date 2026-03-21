@@ -1,18 +1,16 @@
 """(De)serialization for scalar types."""
 
+from bitstring import BitArray
+
 from umbi.datatypes import (
-    Primitive,
     PrimitiveType,
-    NumericPrimitive,
-    NumericPrimitiveType,
     Interval,
     IntervalType,
     Scalar,
     ScalarType,
+    scalar_type_dispatch,
+    validate_scalar_value_type,
 )
-
-from bitstring import BitArray
-
 from .primitive import (
     bytes_to_primitive,
     primitive_to_bytes,
@@ -26,7 +24,6 @@ from .numeric_primitive import (
     numeric_primitive_to_bits,
 )
 from .utils import split_bytes_half
-
 
 # Intervals
 
@@ -54,12 +51,17 @@ def interval_to_bytes(
 
 def bits_to_interval(bits: BitArray, value_type: IntervalType) -> Interval:
     """Convert a bitstring to an interval."""
-    raise NotImplementedError("unpacking intervals from bitstrings is not supported in umbi")
+    # should not be needed in umbi
+    raise NotImplementedError("converting bitstrings to intervals is not supported")
 
 
 def interval_to_bits(interval: Interval, value_type: IntervalType, num_bits: int) -> BitArray:
     """Convert an interval to a bitstring."""
-    raise NotImplementedError("packing intervals into bitstrings is not supported in umbi")
+    # should not be needed in umbi
+    raise NotImplementedError("converting intervals to bitstrings is not supported")
+
+
+# Dispatcher for the API
 
 
 # API
@@ -67,73 +69,45 @@ def interval_to_bits(interval: Interval, value_type: IntervalType, num_bits: int
 
 def bytes_to_scalar(data: bytes, value_type: ScalarType, little_endian: bool = True) -> Scalar:
     """Convert a binary string to a single value of the given common type."""
-    if isinstance(value_type, PrimitiveType):
-        return bytes_to_primitive(data, value_type)
-    else:  # umbi.datatypes.is_numeric_type(value_type):
-        if isinstance(value_type, NumericPrimitiveType):
-            return bytes_to_numeric_primitive(data, value_type, little_endian=little_endian)
-        else:  # umbi.datatypes.is_interval_type(value_type):
-            assert isinstance(value_type, IntervalType), "expected an interval type"
-            return bytes_to_interval(data, value_type, little_endian=little_endian)
+    return scalar_type_dispatch(
+        value_type,
+        on_primitive=lambda vt: bytes_to_primitive(data, vt),
+        on_numeric=lambda vt: bytes_to_numeric_primitive(data, vt, little_endian),
+        on_interval=lambda vt: bytes_to_interval(data, vt, little_endian),
+    )
 
 
 def scalar_to_bytes(
     value: Scalar, value_type: ScalarType, num_bytes: int | None = None, little_endian: bool = True
 ) -> bytes:
-    """
-    Convert a scalar to a bytestring.
-    :note: this method intentionally uses SizedType instead of ScalarType for ease of use outside this subpackage
-    """
-    # expected_type = {
-    #     PrimitiveType: Primitive,
-    #     NumericPrimitiveType: NumericPrimitive,
-    #     IntervalType: Interval,
-    # }[value_type.__class__]
-    # assert isinstance(value, expected_type), f"expected a value of type {expected_type} for type {value_type}, got {type(value)}"
-    if isinstance(value_type, PrimitiveType):
-        # assert num_bytes is None, "num_bytes should not be provided for primitive types"
-        assert isinstance(value, Primitive), "expected a primitive value"
-        return primitive_to_bytes(value, value_type)
-    else:  # umbi.datatypes.is_numeric_type(value_type):
-        assert num_bytes is not None, "num_bytes must be provided for numeric types"
-        if isinstance(value_type, NumericPrimitiveType):
-            assert isinstance(value, NumericPrimitive), "expected a numeric value"
-            return numeric_primitive_to_bytes(value, value_type, num_bytes, little_endian=little_endian)
-        else:  # umbi.datatypes.is_interval_type(value_type):
-            assert isinstance(value_type, IntervalType), "expected an interval type"
-            assert isinstance(value, Interval), "expected an interval value"
-            return interval_to_bytes(value, value_type, num_bytes, little_endian=little_endian)
+    """Convert a scalar to a bytestring."""
+    validate_scalar_value_type(value, value_type)
+    if num_bytes is None:
+        assert isinstance(value_type, PrimitiveType), "num_bytes can be None only for PrimitiveType"
+    return scalar_type_dispatch(
+        value_type,
+        on_primitive=lambda vt: primitive_to_bytes(value, vt),  # type: ignore[argument]
+        on_numeric=lambda vt: numeric_primitive_to_bytes(value, vt, num_bytes, little_endian),  # type: ignore[argument]
+        on_interval=lambda vt: interval_to_bytes(value, vt, num_bytes, little_endian),  # type: ignore[argument]
+    )
 
 
 def bits_to_scalar(bits: BitArray, value_type: ScalarType) -> Scalar:
     """Convert a BitArray to a single value of the given common type."""
-    if isinstance(value_type, PrimitiveType):
-        return bits_to_primitive(bits, value_type)
-    else:  # umbi.datatypes.is_numeric_type(value_type):
-        if isinstance(value_type, NumericPrimitiveType):
-            return bits_to_numeric_primitive(bits, value_type)
-        else:  # umbi.datatypes.is_interval_type(value_type):
-            return bits_to_interval(bits, value_type)
+    return scalar_type_dispatch(
+        value_type,
+        on_primitive=lambda vt: bits_to_primitive(bits, vt),
+        on_numeric=lambda vt: bits_to_numeric_primitive(bits, vt),
+        on_interval=lambda vt: bits_to_interval(bits, vt),
+    )
 
 
 def scalar_to_bits(value: Scalar, value_type: ScalarType, num_bits: int) -> BitArray:
     """Convert a scalar to a bitstring."""
-    if isinstance(value_type, PrimitiveType):
-        assert isinstance(value, Primitive), "expected a primitive value"
-        return primitive_to_bits(value, value_type, num_bits)
-    else:  # umbi.datatypes.is_numeric_type(value_type):
-        if isinstance(value_type, NumericPrimitiveType):
-            assert isinstance(value, NumericPrimitive), "expected a numeric value"
-            return numeric_primitive_to_bits(value, value_type, num_bits)
-        else:  # umbi.datatypes.is_interval_type(value_type):
-            assert isinstance(value, Interval), "expected an interval value"
-            # assert isinstance(value_type, IntervalType), "expected an interval type"
-            return interval_to_bits(value, value_type, num_bits)
-
-
-__all__ = [
-    "bytes_to_scalar",
-    "scalar_to_bytes",
-    "bits_to_scalar",
-    "scalar_to_bits",
-]
+    validate_scalar_value_type(value, value_type)
+    return scalar_type_dispatch(
+        value_type,
+        on_primitive=lambda vt: primitive_to_bits(value, vt, num_bits),  # type: ignore[argument]
+        on_numeric=lambda vt: numeric_primitive_to_bits(value, vt, num_bits),  # type: ignore[argument]
+        on_interval=lambda vt: interval_to_bits(value, vt, num_bits),  # type: ignore[argument]
+    )

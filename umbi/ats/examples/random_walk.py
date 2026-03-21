@@ -1,11 +1,10 @@
-#!/usr/bin/env python3
 """
 umbi demo: A random walk ATS.
 """
 
-import argparse
+from __future__ import annotations
+
 import logging
-import pathlib
 from fractions import Fraction
 
 import umbi
@@ -106,23 +105,3 @@ def random_walk_ats(num_states: int) -> umbi.ats.ExplicitAts:
     ats.observation_annotation.set_state_values([s % 3 for s in range(ats.num_states)])
 
     return ats
-
-
-def main(args):
-    ats = random_walk_ats(args.states)
-    ats.validate()
-    # umbi.io.write_ats(ats, args.output)
-    # logger.info(f"Written to {args.output}")
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Create a random walk umbfile.")
-    parser.add_argument("states", help="Number of states", type=int)
-    parser.add_argument(
-        "--output",
-        help="Destination to write to",
-        type=pathlib.Path,
-        required=False,
-        default=pathlib.Path("out.umb"),
-    )
-    main(parser.parse_args())

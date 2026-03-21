@@ -3,11 +3,11 @@ Interval datatypes.
 """
 
 from dataclasses import dataclass
-from fractions import Fraction
 from collections.abc import Collection
 from .numeric_primitive import (
     NumericPrimitiveType,
     NumericPrimitive,
+    numeric_primitive_type_of,
     numeric_primitive_promotion_type,
     promote_numeric_primitive_to,
 )
@@ -15,6 +15,8 @@ from .numeric_primitive import (
 
 @dataclass(frozen=True)
 class IntervalType:
+    """Interval type, parameterized by a base numeric primitive type."""
+
     base_type: NumericPrimitiveType
 
     def __str__(self) -> str:
@@ -30,12 +32,16 @@ class IntervalType:
         return cls(base_type)
 
 
+@dataclass(frozen=False)
 class Interval:
-    """Represents a numeric interval where left <= right."""
+    """A numeric interval with left <= right."""
 
-    def __init__(self, left: NumericPrimitive, right: NumericPrimitive) -> None:
-        self.left = left
-        self.right = right
+    #: Left endpoint of the interval.
+    left: NumericPrimitive
+    #: Right endpoint of the interval.
+    right: NumericPrimitive
+
+    def __post_init__(self) -> None:
         self.validate()
 
     def validate(self) -> None:
@@ -49,6 +55,10 @@ class Interval:
         return str(self)
 
     def __eq__(self, other: object) -> bool:
+        """
+        Check equality with another interval or numeric primitive. Numeric primitives are treated as point intervals
+        [value, value].
+        """
         if isinstance(other, NumericPrimitive):
             other = Interval(other, other)
         if not isinstance(other, Interval):
@@ -62,12 +72,8 @@ class Interval:
     @property
     def base_type(self) -> NumericPrimitiveType:
         """Get the base numeric type of the interval."""
-        if isinstance(self.left, Fraction) or isinstance(self.right, Fraction):
-            return NumericPrimitiveType.RATIONAL
-        elif isinstance(self.left, float) or isinstance(self.right, float):
-            return NumericPrimitiveType.DOUBLE
-        else:  # isinstance(self.left, int) and isinstance(self.right, int):
-            return NumericPrimitiveType.INT
+        types = {numeric_primitive_type_of(self.left), numeric_primitive_type_of(self.right)}
+        return numeric_primitive_promotion_type(types)
 
     @property
     def type(self) -> IntervalType:
@@ -76,9 +82,7 @@ class Interval:
 
 
 def interval_promotion_type(types: Collection[IntervalType]) -> IntervalType:
-    """Determine the common interval type from a set of interval types. Used for type promotion."""
-    assert len(types) > 0, "cannot determine common numeric type of empty sequence"
-    assert all(isinstance(t, IntervalType) for t in types), f"non-interval types found in set: {types}"
+    """Determine the interval type to which all interval types in the set can be promoted."""
     base_types = {t.base_type for t in types}
     common_base_type = numeric_primitive_promotion_type(base_types)
     return IntervalType(common_base_type)

@@ -1,20 +1,21 @@
 """
-Primitive scalar datatypes.
+Primitive datatypes.
 #TODO: introduce StringType to include strings and jsons?
 """
 
 import enum
-
-""" Primitive scalar type names. """
+from typing import TypeAlias
 
 
 class PrimitiveType(str, enum.Enum):
+    """Primitive types."""
+
     BOOL = "bool"
     STRING = "string"
 
 
-""" Alias for primitive scalar objects. """
-Primitive = bool | str
+#: Primitive values (boolean or string).
+Primitive: TypeAlias = bool | str
 
 
 def primitive_type_of(value: Primitive) -> PrimitiveType:

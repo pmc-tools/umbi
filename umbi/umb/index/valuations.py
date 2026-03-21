@@ -11,9 +11,9 @@ from umbi.binary.struct_type import StructPadding, StructAttribute, StructType
 from .type import SizedTypeSchema
 
 from .json_schema import (
+    FieldUint,
     JsonSchema,
     JsonSchemaResult,
-    FieldUint,
 )
 
 

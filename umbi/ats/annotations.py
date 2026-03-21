@@ -1,15 +1,16 @@
 from dataclasses import dataclass, field
+import itertools
 from umbi.datatypes import (
     PrimitiveType,
     ScalarType,
     Scalar,
     NumericType,
     NumericPrimitiveType,
-    scalar_promotion_type,
-    collection_promotion_type,
+    scalar_promotion_type_of,
 )
 
-from typing import Sequence, cast
+from typing import cast
+from collections.abc import Sequence
 from .entity_class import EntityClass
 import logging
 
@@ -27,8 +28,16 @@ class Annotation:
 
     @classmethod
     def entity_class_enabled(cls, entity_class: EntityClass) -> bool:
-        """Check if the given entity class is enabled for this annotation type. Can be overridden by subclasses."""
+        """Check if the given entity class is enabled for this annotation type. Can be overridden by subclasses to restrict which entity classes the annotation subclass can be applied to."""
         return True
+
+    def __str__(self) -> str:
+        s = f"Annotation(name={self.name!r}, alias={self.alias!r}, description={self.description!r}, values={{\n"
+        indent_str = "  "
+        for entity_class, values in self._entity_class_to_values.items():
+            s += f"{indent_str}{entity_class}: {values}\n"
+        s += "})"
+        return s
 
     @property
     def mappings(self) -> dict[EntityClass, list[Scalar]]:
@@ -152,13 +161,11 @@ class Annotation:
         )
 
     def get_common_type(self) -> ScalarType:
-        """Infer the common data type of annotation values."""
-        types: set[ScalarType] = set()
-        for values in self._entity_class_to_values.values():
-            types.add(collection_promotion_type(values))
-        if len(types) == 0:
-            raise ValueError("Annotation has no values to infer type from")
-        return scalar_promotion_type(types)
+        """
+        Infer the common data type of annotation values.
+        :raises ValueError: if the annotation has no values
+        """
+        return scalar_promotion_type_of(itertools.chain.from_iterable(self._entity_class_to_values.values()))
 
     def validate(self):
         """Validate the annotation data."""

@@ -3,13 +3,13 @@ Type schema and result classes for UMBI types.
 """
 
 from typing import Any
-from marshmallow import fields, post_load
-from .json_schema import JsonSchema
+from marshmallow import fields, post_load, validate
+from .json_schema import FieldUint32, JsonSchema
 import umbi.datatypes
 from umbi.binary.sized_type import SizedType
 
 
-class FieldType(fields.String):
+class FieldTypeSchema(fields.String):
     def _deserialize(self, value: Any, attr: Any, data: Any, **kwargs: Any) -> Any:
         # Validate the input value directly without using parent's validator
         # which expects a String return type
@@ -50,19 +50,21 @@ class FieldType(fields.String):
 
 
 class SizedTypeSchema(JsonSchema):
-    type = FieldType(data_key="type", required=True)
-    size = fields.Integer(data_key="size", required=False)
+    type = FieldTypeSchema(data_key="type", required=True)
+    size = FieldUint32(data_key="size", required=False, validate=validate.Range(min=1))
 
     @post_load
     def make_object(self, data: dict, **kwargs: Any) -> SizedType:
         obj = super().make_object(data, **kwargs)
         assert isinstance(obj.type, umbi.datatypes.ScalarType), f"expected ScalarType, got {type(obj.type)}"
-        return SizedType(type=obj.type, size_bits=obj.size)
+        sized_type = SizedType(type=obj.type, size_bits=obj.size)
+        sized_type.validate()
+        return sized_type
 
     def dump(self, obj: Any, *args: Any, **kwargs: Any) -> Any:
         assert isinstance(obj, SizedType)
         obj_dict = {
-            "type": FieldType()._serialize(obj.type, "type", obj),
+            "type": FieldTypeSchema()._serialize(obj.type, "type", obj),
             "size": obj.size_bits,
         }
         return obj_dict

@@ -1,9 +1,7 @@
-"""
-(De)serialization of sequences of common types or structs.
-"""
+"""(De)serialization of sequences of common types or structs."""
 
 import logging
-from typing import Sequence
+from collections.abc import Sequence
 
 from umbi.datatypes import Scalar, ScalarType
 from .sized_type import SizedType, BOOL1

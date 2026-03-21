@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass, field, fields
 from enum import Enum
-from typing import Iterable
+from collections.abc import Iterable
 
 from umbi.datatypes import Numeric
 
@@ -33,72 +33,71 @@ class ExplicitAts:
     Method validate() can be used to check for consistency.
     """
 
+    #: Information about the model.
     model_info: ModelInfo | None = None
-    """Information about the model."""
+    #: Type of time.
     time: TimeType = TimeType.DISCRETE
-    """Type of time."""
+    #: Number of states. Must be > 0.
     num_states: int = 1
-    """Number of states. Must be > 0."""
 
+    #: Number of players.
     num_players: int = 0
-    """Number of players."""
+    #: State-to-player mapping. Must be set if num_players >= 1.
     state_to_player: list[int] | None = None
-    """State-to-player mapping. Must be set if num_players >= 1."""
+    #: Player-to-name mapping. Can be set only if num_players >= 1.
     player_to_name: list[str] | None = None
-    """Player-to-name mapping. Can be set only if num_players >= 1."""
 
+    #: Number of initial states. Must be consistent with state_is_initial.
     num_initial_states: int = 0
-    """Number of initial states. Must be consistent with state_is_initial."""
+    #: State-to-whether-initial mapping.
     state_is_initial: list[bool] = field(default_factory=lambda: [False])
-    """State-to-whether-initial mapping."""
 
+    #: Number of choices.
     num_choices: int = 0
-    """Number of choices."""
+    #: CSR list of length num_states + 1. Must be set if num_choices > 0.
     state_to_choice: list[int] | None = None
-    """CSR list of length num_states + 1. Must be set if num_choices > 0."""
 
+    #: Number of branches.
     num_branches: int = 0
-    """Number of branches."""
+    #: CSR list of length num_choices + 1. Must be set if num_branches > 0.
     choice_to_branches: list[int] | None = None
-    """CSR list of length num_choices + 1. Must be set if num_branches > 0."""
 
+    #: Branch-to-target-state mapping. Must be set if num_branches > 0.
     branch_to_target: list[int] | None = None
-    """Branch-to-target-state mapping. Must be set if num_branches > 0."""
+    #: Branch-to-probability mapping. Must be set if num_branches > 0. Can contain arbitrary Numeric values.
     branch_to_probability: list[Numeric] | None = None
-    """Branch-to-probability mapping. Must be set if num_branches > 0. Can contain arbitrary Numeric values."""
 
+    #: State-to-whether-markovian mapping. Must be set if time is TimeType.STOCHASTIC.
     state_is_markovian: list[bool] | None = None
-    """State-to-whether-markovian mapping. Must be set if time is TimeType.STOCHASTIC."""
+    #: State-to-exit-rate mapping. Must be set if time is TimeType.STOCHASTIC. Can contain arbitrary Numeric values.
     state_to_exit_rate: list[Numeric] | None = None
-    """State-to-exit-rate mapping. Must be set if time is TimeType.STOCHASTIC. Can contain arbitrary Numeric values."""
 
+    #: Number of actions associated with choices.
     num_choice_actions: int = 0
-    """Number of actions associated with choices."""
+    #: Choice-to-choice-action mapping. Must be set if num_choice_actions > 0.
     choice_to_choice_action: list[int] | None = None
-    """Choice-to-choice-action mapping. Must be set if num_choice_actions > 0."""
+    #: Choice-action-to-string mapping. Can only be set if num_choice_actions > 0.
     choice_action_to_name: list[str] | None = None
-    """Choice-action-to-string mapping. Can only be set if num_choice_actions > 0."""
 
+    #: Number of actions associated with branches.
     num_branch_actions: int = 0
-    """Number of actions associated with branches."""
+    #: Branch-to-branch-action mapping. Must be set if num_branch_actions > 0.
     branch_to_branch_action: list[int] | None = None
-    """Branch-to-branch-action mapping. Must be set if num_branch_actions > 0."""
+    #: Branch-action-to-string mapping. Can only be set if num_branch_actions > 0.
     branch_action_to_name: list[str] | None = None
-    """Branch-action-to-string mapping. Can only be set if num_branch_actions > 0."""
 
+    #: Annotation category -> (annotation name -> annotation) mapping. Categories 'rewards' and 'aps' can be used, but
+    #: must be of the type RewardAnnotation and AtomicPropositionAnnotation, respectively.
     annotations: dict[str, dict[str, Annotation]] = field(default_factory=lambda: {})
-    """
-    Annotation category -> (annotation name -> annotation) mapping. Categories 'rewards' and 'aps' can be used, but
-    must be of the type RewardAnnotation and AtomicPropositionAnnotation, respectively.
-    """
 
+    #: Observation annotation.
     observation_annotation: ObservationAnnotation | None = None
-    """Observation annotation."""
 
+    #: EntityClassValuations associated with the ATS.
     variable_valuations: EntityClassValuations | None = None
-    """EntityClassValuations associated with the ATS."""
 
     def __str__(self) -> str:
+        # TODO pretty print
         lines = [f"{self.__class__.__name__}("]
         for dataclass_field in fields(self):
             lines.append(f"  {dataclass_field.name}={getattr(self, dataclass_field.name)!r}")

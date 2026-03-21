@@ -1,20 +1,19 @@
 """(De)serializers for primitive types."""
 
-from umbi.datatypes import Primitive, PrimitiveType
 from bitstring import BitArray
-
+from umbi.datatypes import Primitive, PrimitiveType
 
 # Booleans
 
 
 def bytes_to_bool(data: bytes) -> bool:
     # should not be needed in umbi
-    raise NotImplementedError("unexpected need to decode a boolean from bytes")
+    raise NotImplementedError("conversion from bytes to boolean not supported")
 
 
 def bool_to_bytes(value: bool) -> bytes:
     # should not be needed in umbi
-    raise NotImplementedError("unexpected need to encode a boolean into bytes")
+    raise NotImplementedError("conversion from boolean to bytes not supported")
 
 
 def bits_to_bool(bits: BitArray) -> bool:
@@ -43,12 +42,12 @@ def string_to_bytes(value: str) -> bytes:
 
 def string_to_bits(value: str) -> BitArray:
     # should not be needed in umbi
-    raise NotImplementedError("unexpected need to encode a string into a bitstring")
+    raise NotImplementedError("conversion from string to bitstring not supported")
 
 
 def bits_to_string(bits: BitArray) -> str:
     # should not be needed in umbi
-    raise NotImplementedError("unexpected need to decode a string from a bitstring")
+    raise NotImplementedError("conversion from bitstring to string not supported")
 
 
 # API
@@ -80,11 +79,3 @@ def primitive_to_bits(value: Primitive, value_type: PrimitiveType, num_bits: int
         PrimitiveType.BOOL: lambda v: bool_to_bits(v, num_bits),
         PrimitiveType.STRING: string_to_bits,
     }[value_type](value)
-
-
-__all__ = [
-    "bytes_to_primitive",
-    "primitive_to_bytes",
-    "bits_to_primitive",
-    "primitive_to_bits",
-]

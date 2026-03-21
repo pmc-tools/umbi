@@ -1,11 +1,9 @@
-#!/usr/bin/env python3
 """
 umbi demo: Create an ATS from a grid string.
 """
 
-import argparse
-import pathlib
-import sys
+from __future__ import annotations
+
 from fractions import Fraction
 
 import umbi
@@ -14,7 +12,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def grid_ats_from_string(grid: str) -> umbi.ats.ExplicitAts:
+def grid_ats(grid: str) -> umbi.ats.ExplicitAts:
     """
     Create a simple ATS from a rectangular grid string.
 
@@ -116,30 +114,3 @@ def grid_ats_from_string(grid: str) -> umbi.ats.ExplicitAts:
     ats.add_reward_annotation(step_cost_reward)
 
     return ats
-
-
-def main(args):
-    if args.input == "-":
-        text = sys.stdin.read()
-    else:
-        with pathlib.Path(args.input).open("rt") as f:
-            text = f.read()
-    ats = grid_ats_from_string(text)
-    ats.validate()
-    # umbi.io.write_ats(ats, args.output)
-    # logger.info(f"Written to {args.output}")
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Create an umbfile from a gridworld text file.")
-    parser.add_argument(
-        "input", help="filename of the gridworld text file (or '-' to read from stdin)", type=str, default="-"
-    )
-    parser.add_argument(
-        "--output",
-        help="Destination to write to",
-        type=pathlib.Path,
-        required=False,
-        default=pathlib.Path("out.umb"),
-    )
-    main(parser.parse_args())

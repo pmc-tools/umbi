@@ -8,7 +8,7 @@ import logging
 import pathlib
 
 import umbi
-import umbi.examples.ats
+import umbi.ats.examples
 
 log = logging.getLogger(__name__)
 

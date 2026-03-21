@@ -13,7 +13,7 @@ import umbi.datatypes
 from .json_schema import (
     JsonSchema,
     JsonSchemaResult,
-    FieldUint,
+    FieldUint64,
 )
 
 
@@ -22,7 +22,7 @@ class FileDataSchema(JsonSchema):
 
     tool = fields.String(data_key="tool", required=False)
     tool_version = fields.String(data_key="tool-version", required=False)
-    creation_date = FieldUint(data_key="creation-date", required=False)
+    creation_date = FieldUint64(data_key="creation-date", required=False)
     parameters = fields.Raw(data_key="parameters", required=False)
 
     @classmethod

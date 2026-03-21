@@ -1,19 +1,22 @@
-"""
-Reading and writing umbfiles into ExplicitUmb.
-"""
+"""Reading and writing umbfiles into ExplicitUmb."""
 
 import pathlib
 from enum import Enum
 import logging
 
+from .explicit_umb import ExplicitUmb
 import umbi.binary
+from umbi.binary import UINT32, UINT64
 import umbi.datatypes
-import umbi.umb.index
-
-from umbi.umb import ExplicitUmb
-from umbi.binary.sized_type import UINT32, UINT64
 from umbi.datatypes import PrimitiveType
-from .tar_coders import TarDecoder, TarEncoder
+import umbi.io
+
+from .index import (
+    AnnotationDescription,
+    ValuationDescription,
+    UmbIndex,
+    umbi_file_data,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -33,41 +36,47 @@ class UmbFile(Enum):
     BRANCH_TO_PROBABILITY = "branch-to-probability.bin"
 
 
-class UmbReader(TarDecoder):
-    def __init__(self, tarpath: str | pathlib.Path, strict_mode: bool = False) -> None:
-        """
-        :param tarpath: path to the umbfile
-        :param strict_mode: in the strict mode, unknown files will raise an error
-        """
-        super().__init__(tarpath)
-        # to keep track of which files were read
-        self.filename_read = {filename: False for filename in self.filenames}
-        # in strict mode, we will raise an error if there are any unrecognized files in the umbfile
-        self.strict_mode = strict_mode
+class UmbDecoder(umbi.io.TarCoder):
+    """Converting tarfiles to ExplicitUmb."""
 
-    def list_unread_files(self):
-        """Print warning about unread files from the tarfile, if such exist."""
+    #: to keep track of which files were read; reset upon calling decode() and modified upon calling get_file()
+    filename_read: dict[str, bool] | None = None
+
+    def __init__(self, umbpath: str | pathlib.Path | None = None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if umbpath is not None:
+            self.read(umbpath)
+
+    def reset_read_tracking(self):
+        """Reset the read tracking for all files in the tarfile."""
+        self.filename_read = {filename: False for filename in self.filenames}
+
+    # def read(self, tarpath: str | pathlib.Path) -> None:
+    #     """Load tarfile contents from a tarball."""
+    #     super().read(tarpath)
+    #     self.reset_read_tracking()
+
+    def get_file(self, filename: str, required: bool = False) -> bytes | None:
+        """Read raw bytes from a specific file in the tarball. Mark the file as read."""
+        if self.filename_read is not None and self.has_file(filename):
+            self.filename_read[filename] = True
+        return super().get_file(filename, required)
+
+    def list_unread_files(self, strict: bool = False):
+        """List unread files from the tarfile. Raise an error if there are any unread files in strict mode."""
+        if self.filename_read is None:
+            return
         unread_files = [f for f, read in self.filename_read.items() if not read]
         for f in unread_files:
-            logger.warning(f"umbfile contains unrecognized file: {f}")
-        if self.strict_mode and len(unread_files) > 0:
-            raise ValueError(f"unrecognized files in umbfile: {unread_files}")
-
-    def read_file(self, filename: str, required: bool = False) -> bytes | None:
-        """Read raw bytes from a specific file in the tarball. Mark the file as read."""
-        if self.has_file(filename):
-            self.filename_read[filename] = True
-        return super().read_file(filename, required)
+            logger.warning(f"umbfile contains unread file: {f}")
+        if len(unread_files) > 0 and strict:
+            raise ValueError(f"unread files in umbfile: {unread_files}")
 
     def read_index_file(self, umb: ExplicitUmb):
-        json_bytes = self.read_file(UmbFile.INDEX.value, required=True)
-        assert json_bytes is not None
-        json_str = umbi.binary.bytes_to_scalar(json_bytes, PrimitiveType.STRING)
-        assert isinstance(json_str, str)
-        json_obj = umbi.datatypes.string_to_json(json_str)
+        json_obj = self.read_json(UmbFile.INDEX.value, required=True)
         pretty_str = umbi.datatypes.json_to_string(json_obj)
         logger.debug(f"loaded the following index file:\n{pretty_str}")
-        idx = umbi.umb.index.UmbIndex.from_json(json_obj)
+        idx = UmbIndex.from_json(json_obj)
         idx.validate()
         umb.index = idx
 
@@ -88,11 +97,15 @@ class UmbReader(TarDecoder):
             # ignore the file, all states are probabilistic
             umb.state_is_markovian = [False] * ts.num_states
         else:
-            if self.has_file(UmbFile.STATE_IS_MARKOVIAN.value):
-                umb.state_is_markovian = self.read_bitvector(UmbFile.STATE_IS_MARKOVIAN.value, ts.num_states)
+            if ts.time == "stochastic":
+                # ignore the file, all states are Markovian
+                umb.state_is_markovian = [True] * ts.num_states
             else:
-                default = ts.time == "stochastic"
-                umb.state_is_markovian = [default] * ts.num_states
+                # ts.time == "urgent-stochastic"
+                if self.has_file(UmbFile.STATE_IS_MARKOVIAN.value):
+                    umb.state_is_markovian = self.read_bitvector(UmbFile.STATE_IS_MARKOVIAN.value, ts.num_states)
+                else:
+                    umb.state_is_markovian = [True] * ts.num_states
 
         if ts.time == "stochastic" and ts.exit_rate_type is not None:
             if self.has_file(UmbFile.STATE_TO_EXIT_RATE.value):
@@ -100,9 +113,9 @@ class UmbReader(TarDecoder):
                     UmbFile.STATE_TO_EXIT_RATE.value, ts.exit_rate_type, required=True
                 )
 
-    def read_actions(self, umb: ExplicitUmb, applies_to: str, num_items: int):
-        """
-        Read action files for a specific action type (choices or branches).
+    def read_action_files(self, umb: ExplicitUmb, applies_to: str, num_items: int):
+        """Read action files for a specific action type (choices or branches).
+
         :param umb: ExplicitUmb object to populate
         :param applies_to: "choices" or "branches"
         :param num_items: number of items (choices or branches)
@@ -141,10 +154,10 @@ class UmbReader(TarDecoder):
             )
 
         if ts.num_choice_actions > 0:
-            self.read_actions(umb, "choices", ts.num_choices)
+            self.read_action_files(umb, "choices", ts.num_choices)
 
         if ts.num_branch_actions > 0:
-            self.read_actions(umb, "branches", ts.num_branches)
+            self.read_action_files(umb, "branches", ts.num_branches)
 
     def read_annotation_files(self, umb: ExplicitUmb):
         if umb.index.annotations is None:
@@ -160,10 +173,10 @@ class UmbReader(TarDecoder):
         umb: ExplicitUmb,
         group: str,
         name: str,
-        annotation: umbi.umb.index.AnnotationDescription,
+        annotation: AnnotationDescription,
     ):
-        """
-        Read annotation files for a single annotation.
+        """Read annotation files for a single annotation.
+
         :param group: annotation group, e.g. "rewards", "aps", or custom group
         :param name: annotation name
         :param annotation: annotation info (Annotation)
@@ -211,7 +224,7 @@ class UmbReader(TarDecoder):
         self,
         umb: ExplicitUmb,
         applies_to: str,
-        valuation_desc: umbi.umb.index.ValuationDescription,
+        valuation_desc: ValuationDescription,
     ):
         ts = umb.index.transition_system
         num_entries = {
@@ -228,7 +241,7 @@ class UmbReader(TarDecoder):
             raise NotImplementedError("reading multiple valuation classes is not implemented")
         struct_type = valuation_desc.classes[0]
         assert not struct_type.contains_strings, "reading valuations with strings is not implemented"
-        bytes = self.read_file(f"valuations/{applies_to}/valuations.bin", required=True)
+        bytes = self.get_file(f"valuations/{applies_to}/valuations.bin", required=True)
         assert bytes is not None, "expected non-None bytes"
         expected_size = struct_type.size_bytes * num_entries
         assert len(bytes) == expected_size, (
@@ -247,30 +260,29 @@ class UmbReader(TarDecoder):
         applies_to = ts.observations_apply_to
         umb.entity_to_observation = self.read_vector(f"observations/{applies_to}/values.bin", UINT64, required=True)
 
-    def read_umb(self) -> ExplicitUmb:
-        logger.info(f"loading umbfile from {self.tarpath} ...")
-        filenames_str = "\n".join(self.filenames)
-        logger.debug(f"found the following files in the umbfile:\n{filenames_str}")
+    def decode(self, strict: bool = False) -> ExplicitUmb:
+        """Decode the tarfile contents into an ExplicitUmb object.
+
+        :param strict: in the strict mode, error is raised if there are any unread files in the umbfile
+        """
         umb = ExplicitUmb()
+        self.reset_read_tracking()
         self.read_index_file(umb)
         self.read_state_files(umb)
         self.read_transition_files(umb)
         self.read_annotation_files(umb)
         self.read_valuation_files(umb)
         self.read_observation_files(umb)
-        self.list_unread_files()
-        logger.info("umbfile successfully loaded")
+        self.list_unread_files(strict=strict)
         return umb
 
 
-class UmbWriter(TarEncoder):
+class UmbEncoder(umbi.io.TarCoder):
     def add_index_file(self, umb: ExplicitUmb):
         """Add the index file."""
         umb.index.validate()
         json_obj = umb.index.to_json()
-        json_str = umbi.datatypes.json_to_string(json_obj)
-        json_bytes = umbi.binary.scalar_to_bytes(json_str, PrimitiveType.STRING)
-        self.add_file(UmbFile.INDEX.value, json_bytes)
+        self.add_json(UmbFile.INDEX.value, json_obj, required=True)
 
     def add_state_files(self, umb: ExplicitUmb):
         """Add state-related files."""
@@ -308,25 +320,21 @@ class UmbWriter(TarEncoder):
             )
 
         if ts.num_choice_actions > 0:
-            self.add_actions(umb, "choices")
+            self.add_action_files("choices", umb.choice_to_choice_action, umb.choice_action_to_string)
 
         if ts.num_branch_actions > 0:
-            self.add_actions(umb, "branches")
+            self.add_action_files("branches", umb.branch_to_branch_action, umb.branch_action_to_string)
 
-    def add_actions(self, umb: ExplicitUmb, applies_to: str):
-        """
-        Add action files for a specific action type (choices or branches).
-        :param umb: ExplicitUmb object to write from
+    def add_action_files(
+        self, applies_to: str, item_to_actions: list | None = None, action_to_string: list[str] | None = None
+    ):
+        """Add action files for a specific action type (choices or branches).
+
         :param applies_to: "choices" or "branches"
+        :param item_to_actions: list mapping each item (choice or branch) to an action index
+        :param action_to_string: list mapping each action index to a string (e.g. action name), or None if no string mapping is provided
         """
         path = f"actions/{applies_to}"
-
-        if applies_to == "choices":
-            item_to_actions = umb.choice_to_choice_action
-            action_to_string = umb.choice_action_to_string
-        else:  # branches
-            item_to_actions = umb.branch_to_branch_action
-            action_to_string = umb.branch_action_to_string
 
         if item_to_actions is not None:
             self.add_vector(f"{path}/values.bin", UINT32, item_to_actions)
@@ -349,10 +357,10 @@ class UmbWriter(TarEncoder):
         umb: ExplicitUmb,
         group: str,
         name: str,
-        annotation: umbi.umb.index.AnnotationDescription,
+        annotation: AnnotationDescription,
     ):
-        """
-        Add files for a single annotation.
+        """Add files for a single annotation.
+
         :param umb: ExplicitUmb object to write from
         :param group: annotation group, e.g. "rewards", "aps"
         :param name: annotation name
@@ -386,7 +394,7 @@ class UmbWriter(TarEncoder):
         self,
         umb: ExplicitUmb,
         applies_to: str,
-        valuation_desc: umbi.umb.index.ValuationDescription,
+        valuation_desc: ValuationDescription,
     ):
         ts = umb.index.transition_system
         num_entries = {
@@ -421,25 +429,53 @@ class UmbWriter(TarEncoder):
         assert umb.entity_to_observation is not None, "umb.entity_to_observation must be specified"
         self.add_vector(f"observations/{applies_to}/values.bin", UINT64, umb.entity_to_observation, required=True)
 
-    def write_umb(self, umb: ExplicitUmb, umbpath: str | pathlib.Path):
-        logger.info(f"writing umbfile to {umbpath} ...")
-        self.add_index_file(umb)
-        self.add_state_files(umb)
-        self.add_transition_files(umb)
-        self.add_annotation_files(umb)
-        self.add_valuation_files(umb)
-        self.add_observation_files(umb)
-        self.write(umbpath)
-        logger.info("finished writing the umbfile")
+    def encode(self, umb: ExplicitUmb, insert_umbi_metadata: bool = True):
+        """Encode ExplicitUmb into tarfile contents."""
+        original_file_data = None
+        if insert_umbi_metadata:
+            original_file_data = umb.index.file_data
+            umb.index.file_data = umbi_file_data()
+        try:
+            self.clear()
+            self.add_index_file(umb)
+            self.add_state_files(umb)
+            self.add_transition_files(umb)
+            self.add_annotation_files(umb)
+            self.add_valuation_files(umb)
+            self.add_observation_files(umb)
+        finally:
+            if insert_umbi_metadata:
+                umb.index.file_data = original_file_data
 
 
-def read_umb(umbpath: str | pathlib.Path) -> ExplicitUmb:
-    """Read ExplicitUmb from a umbfile."""
-    return UmbReader(umbpath).read_umb()
+# API
 
 
-def write_umb(umb: ExplicitUmb, umbpath: str | pathlib.Path, replace_file_data: bool = True):
-    """Write ExplicitUmb to a umbfile."""
-    if replace_file_data:
-        umb.index.file_data = umbi.umb.index.umbi_file_data()
-    UmbWriter().write_umb(umb, umbpath)
+def read(umbpath: str | pathlib.Path, strict: bool = False) -> ExplicitUmb:
+    """Read ExplicitUmb from a umbfile.
+
+    :param umbpath: path to the umbfile
+    :param strict: in the strict mode, unread files will raise an error
+    :return: ExplicitUmb object containing the data from the umbfile
+    """
+    logger.info(f"loading umbfile from {umbpath} ...")
+    decoder = UmbDecoder(umbpath=umbpath)
+    filenames_str = "\n".join(decoder.filenames)
+    logger.debug(f"found the following files in the umbfile:\n{filenames_str}")
+    umb = decoder.decode(strict=strict)
+    logger.info(f"finished loading umbfile from {umbpath}")
+    return umb
+
+
+def write(umb: ExplicitUmb, umbpath: str | pathlib.Path, insert_umbi_metadata: bool = True) -> None:
+    """Write ExplicitUmb to a umbfile.
+
+    :param umb: ExplicitUmb object to write
+    :param umbpath: path to the umbfile to write to
+    :param insert_umbi_metadata: if True, insert umbi's file metadata instead; the input ExplicitUmb object will not be modified
+    """
+    logger.info(f"writing umbfile to {umbpath} ...")
+    encoder = UmbEncoder()
+    encoder.encode(umb, insert_umbi_metadata=insert_umbi_metadata)
+    encoder.write(umbpath)
+    logger.info(f"finished writing umbfile {umbpath}")

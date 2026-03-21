@@ -7,17 +7,18 @@ from collections.abc import Collection
 from .numeric_primitive import (
     NumericPrimitive,
     NumericPrimitiveType,
-    numeric_primitive_promotion_type,
     numeric_primitive_type_of,
+    numeric_primitive_promotion_type,
     promote_numeric_primitive_to,
 )
 from .interval import Interval, IntervalType, interval_promotion_type, promote_interval_to
+from typing import TypeAlias
 
-""" Alias for all numeric objects. """
-NumericType = NumericPrimitiveType | IntervalType
+#: Numeric type: either a primitive numeric type or an interval.
+NumericType: TypeAlias = NumericPrimitiveType | IntervalType
 
-""" Alias for all numeric types. """
-Numeric = NumericPrimitive | Interval
+#: Numeric value: either a primitive numeric value or an interval.
+Numeric: TypeAlias = NumericPrimitive | Interval
 
 
 def numeric_type_of(value: Numeric) -> NumericType:
@@ -38,8 +39,7 @@ def numeric_promotion_type(types: Collection[NumericType]) -> NumericType:
         # convert all primitive types to intervals
         interval_types = list({IntervalType(t) if isinstance(t, NumericPrimitiveType) else t for t in types})
         return interval_promotion_type(interval_types)
-    # assert all(isinstance(t, NumericPrimitiveType) for t in types), f"non-primitive types found in set: {types}"
-    return numeric_primitive_promotion_type(types)  # type: ignore
+    return numeric_primitive_promotion_type(types)  # type: ignore[arg-type]
 
 
 def promote_numeric_to(value: Numeric, target_type: NumericType) -> Numeric:
@@ -47,7 +47,7 @@ def promote_numeric_to(value: Numeric, target_type: NumericType) -> Numeric:
     if isinstance(target_type, NumericPrimitiveType):
         assert isinstance(value, NumericPrimitive), f"cannot promote {value} to primitive type {target_type}"
         return promote_numeric_primitive_to(value, target_type)
-    else:  # is_interval_type(target_type):
+    else:  # isinstance(target_type, IntervalType):
         if not isinstance(value, Interval):
             value = Interval(value, value)
         return promote_interval_to(value, target_type)

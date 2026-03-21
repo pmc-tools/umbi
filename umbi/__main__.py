@@ -1,6 +1,6 @@
 import logging
 import click
-from umbi import setup_logging, set_log_level, __toolname__, __version__, io
+import umbi
 
 logger = logging.getLogger(__name__)
 
@@ -14,20 +14,30 @@ logger = logging.getLogger(__name__)
     required=False,
     help="logging level",
 )
-@click.option("--import-umb", type=click.Path(), required=False, help=".umb filepath to import")
-@click.option("--export-umb", type=click.Path(), required=False, help=".umb filepath to export")
-def main(log_level, import_umb, export_umb):
-    setup_logging()
-    set_log_level(getattr(logging, log_level))
-    logger.info(f"this is {__toolname__} v.{__version__}")
+@click.option("--import-umb", type=click.Path(), required=False, help=".umb filepath to import as ExplicitUmb")
+@click.option("--import-ats", type=click.Path(), required=False, help=".umb filepath to import as ExplicitAts")
+@click.option("--export", type=click.Path(), required=False, help=".umb filepath to export")
+def main(log_level, import_umb, import_ats, export):
+    umbi.setup_logging(level=log_level)
+    logger.info(f"this is {umbi.__toolname__} v.{umbi.__version__}")
 
+    umb = None
     ats = None
     if import_umb is not None:
-        ats = io.read_umb(import_umb)
-    if export_umb is not None:
-        if ats is None:
-            raise ValueError("--export-umb specified, but nothing to export")
-        io.write_umb(ats, export_umb)
+        umb = umbi.umb.read(import_umb)
+        logger.info(f"imported: {umb}")
+    if import_ats is not None:
+        ats = umbi.ats.read(import_ats)
+        logger.info(f"imported: {ats}")
+    if export is not None:
+        if umb is None and ats is None:
+            raise ValueError("--export specified, but nothing to export")
+        if umb is not None and ats is not None:
+            raise ValueError("cannot specify both --import-umb and --import-ats when using --export")
+        if import_umb is not None:
+            umbi.umb.write(umb, export)
+        if import_ats is not None:
+            umbi.ats.write(ats, export)
 
 
 if __name__ == "__main__":

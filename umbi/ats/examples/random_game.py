@@ -4,9 +4,9 @@ umbi demo: A random stochastic game generator based on Azeem et al. "Optimistic 
 Simple Stochastic Games".
 """
 
-import argparse
+from __future__ import annotations
+
 import logging
-import pathlib
 import random
 import time
 
@@ -246,29 +246,3 @@ def random_game_ats(num_states: int, seed: int | None = None) -> umbi.ats.Explic
     logger.info(f"player0 states: {sum(is_player0_state)}, player1 states: {num_states - sum(is_player0_state)}")
 
     return ats
-
-
-def main(args):
-    ats = random_game_ats(args.states, args.seed)
-    ats.validate()
-    # umbi.io.write_ats(ats, args.output)
-    # logger.info(f"Written to {args.output}")
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Create a random stochastic game umbfile.")
-    parser.add_argument("states", help="Number of states", type=int)
-    parser.add_argument(
-        "--output",
-        help="Destination to write to",
-        type=pathlib.Path,
-        required=False,
-        default=pathlib.Path("out.umb"),
-    )
-    parser.add_argument(
-        "--seed",
-        help="Random seed for reproducibility",
-        type=int,
-        default=None,
-    )
-    main(parser.parse_args())

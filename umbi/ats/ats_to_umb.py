@@ -2,17 +2,14 @@ import pathlib
 
 import umbi.umb
 import umbi.umb.index
-import umbi.ats
 import umbi.datatypes
 import umbi.version
 
-from umbi.umb import ExplicitUmb
+import umbi.umb
 from umbi.binary import SizedType
 
-from .umb import read_umb, write_umb
 
-
-def explicit_umb_to_explicit_ats(umb: ExplicitUmb) -> umbi.ats.ExplicitAts:
+def explicit_umb_to_explicit_ats(umb: umbi.umb.ExplicitUmb) -> umbi.ats.ExplicitAts:
     umb.validate()
     ats = umbi.ats.ExplicitAts()
 
@@ -116,9 +113,9 @@ def explicit_umb_to_explicit_ats(umb: ExplicitUmb) -> umbi.ats.ExplicitAts:
     return ats
 
 
-def explicit_ats_to_explicit_umb(ats: umbi.ats.ExplicitAts) -> ExplicitUmb:
+def explicit_ats_to_explicit_umb(ats: umbi.ats.ExplicitAts) -> umbi.umb.ExplicitUmb:
     ats.validate()
-    umb = ExplicitUmb()
+    umb = umbi.umb.ExplicitUmb()
 
     ## index
 
@@ -172,9 +169,9 @@ def explicit_ats_to_explicit_umb(ats: umbi.ats.ExplicitAts) -> ExplicitUmb:
     umb.state_is_markovian = ats.state_is_markovian
     if ats.state_to_exit_rate is not None:
         # promote all to common type
-        target_type, vector = umbi.datatypes.promote_vector(ats.state_to_exit_rate)
+        target_type, vector = umbi.datatypes.promote_scalars(ats.state_to_exit_rate)
         assert isinstance(target_type, umbi.datatypes.NumericType), "exit rates must be numeric"
-        umb.index.transition_system.exit_rate_type = SizedType(type=target_type)
+        umb.index.transition_system.exit_rate_type = SizedType.for_type(target_type)
         umb.state_to_exit_rate = vector  # type: ignore
 
     umb.choice_to_branches = ats.choice_to_branches
@@ -182,9 +179,9 @@ def explicit_ats_to_explicit_umb(ats: umbi.ats.ExplicitAts) -> ExplicitUmb:
 
     if ats.branch_to_probability is not None:
         # promote
-        target_type, vector = umbi.datatypes.promote_vector(ats.branch_to_probability)
+        target_type, vector = umbi.datatypes.promote_scalars(ats.branch_to_probability)
         assert isinstance(target_type, umbi.datatypes.NumericType), "branch probabilities must be numeric"
-        umb.index.transition_system.branch_probability_type = SizedType(type=target_type)
+        umb.index.transition_system.branch_probability_type = SizedType.for_type(target_type)
         umb.branch_to_probability = vector  # type: ignore
 
     umb.choice_to_choice_action = ats.choice_to_choice_action
@@ -207,7 +204,7 @@ def explicit_ats_to_explicit_umb(ats: umbi.ats.ExplicitAts) -> ExplicitUmb:
                 alias=ats_annotation.alias,
                 description=ats_annotation.description,
                 applies_to=[entity_class.value for entity_class in ats_annotation.entity_classes],  # type: ignore
-                type=SizedType(type=target_type),
+                type=SizedType.for_type(target_type),
                 lower=None,  # TODO add later
                 upper=None,  # TODO add later
             )
@@ -215,7 +212,7 @@ def explicit_ats_to_explicit_umb(ats: umbi.ats.ExplicitAts) -> ExplicitUmb:
             umb.annotations[category][name] = dict[str, list]()
             for entity_class in ats_annotation.entity_classes:
                 values = ats_annotation._entity_class_to_values[entity_class]
-                values = umbi.datatypes.promote_vector_to(values, target_type)
+                values = umbi.datatypes.promote_scalars_to(values, target_type)
                 umb.annotations[category][name][entity_class.value] = values
 
     # add valuations
@@ -232,9 +229,9 @@ def explicit_ats_to_explicit_umb(ats: umbi.ats.ExplicitAts) -> ExplicitUmb:
             for var in entity_valuations.variables:
                 values = entity_valuations.get_variable_valuations(var).values
                 assert None not in values, "valuation variables cannot have None values"
-                target_type, values = umbi.datatypes.promote_vector(values)  # type: ignore
+                target_type, values = umbi.datatypes.promote_scalars(values)  # type: ignore
                 var_values[var] = values
-                num_bits = umbi.binary.sized_type.max_num_bits_for_sequence_element(values, target_type)
+                num_bits = umbi.binary.max_num_bits_for_collection_element(values, target_type)
                 valuation_class.add_attribute(
                     name=var.name,
                     sized_type=SizedType(type=var.promotion_type, size_bits=num_bits),
@@ -265,14 +262,23 @@ def explicit_ats_to_explicit_umb(ats: umbi.ats.ExplicitAts) -> ExplicitUmb:
 # API
 
 
-def read_ats(umbpath: str | pathlib.Path) -> umbi.ats.ExplicitAts:
-    """Read ATS from a umbfile."""
-    umb = read_umb(umbpath)
+def read(umbpath: str | pathlib.Path, strict: bool = False) -> umbi.ats.ExplicitAts:
+    """Read ATS from a umbfile.
+
+    :param umbpath: path to the umbfile
+    :param strict: in the strict mode, unread files will raise an error
+    :return: ExplicitAts object containing the data from the umbfile
+    """
+    umb = umbi.umb.read(umbpath, strict=strict)
     ats = explicit_umb_to_explicit_ats(umb)
     return ats
 
 
-def write_ats(ats: umbi.ats.ExplicitAts, umbpath: str | pathlib.Path) -> None:
-    """Write ATS to a umbfile."""
+def write(ats: umbi.ats.ExplicitAts, umbpath: str | pathlib.Path) -> None:
+    """Write ATS to a umbfile.
+
+    :param ats: ExplicitAts object to write
+    :param umbpath: path to the umbfile to write to
+    """
     umb = explicit_ats_to_explicit_umb(ats)
-    write_umb(umb, umbpath)
+    umbi.umb.write(umb, umbpath)

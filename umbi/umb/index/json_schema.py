@@ -23,13 +23,29 @@ logger = logging.getLogger(__name__)
 class FieldUint(fields.Int):
     """Custom marshmallow field for unsigned integers."""
 
+    max_value: int | None = None  # Subclasses should override
+
     def _deserialize(self, value: Any, attr: Any, data: Any, **kwargs: Any) -> Any:
         result = super()._deserialize(value, attr, data, **kwargs)
         if result is None:
             raise ValidationError("value is required")
         if result < 0:
             raise ValidationError(f"value {value} must be an unsigned integer")
+        if self.max_value is not None and result > self.max_value:
+            raise ValidationError(f"value {value} exceeds maximum for this field")
         return result
+
+
+class FieldUint32(FieldUint):
+    """Custom marshmallow field for 32-bit unsigned integers."""
+
+    max_value = 2**32 - 1
+
+
+class FieldUint64(FieldUint):
+    """Custom marshmallow field for 64-bit unsigned integers."""
+
+    max_value = 2**64 - 1
 
 
 class JsonSchema(Schema):
