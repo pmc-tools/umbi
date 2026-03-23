@@ -8,14 +8,14 @@ from umbi.datatypes import (
     Interval,
     NumericPrimitiveType,
     PrimitiveType,
-    promote_scalars_to,
     promote_scalars,
+    promote_scalars_to,
 )
 from umbi.datatypes.scalar import (
     promote_scalar_to,
+    scalar_promotion_type,
     scalar_type_of,
     scalar_types_of,
-    scalar_promotion_type,
 )
 
 

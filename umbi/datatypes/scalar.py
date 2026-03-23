@@ -1,12 +1,12 @@
 """Scalar encompasses primitive and numeric types."""
 
-from .primitive import Primitive, PrimitiveType, primitive_type_of
-from .numeric import NumericType, Numeric, numeric_type_of, numeric_promotion_type, promote_numeric_to
-from .numeric_primitive import NumericPrimitive, NumericPrimitiveType
-from .interval import Interval, IntervalType
-from typing import TypeAlias, TypeVar
 from collections.abc import Callable, Collection, Iterable, Sequence
+from typing import TypeAlias, TypeVar
 
+from .interval import Interval, IntervalType
+from .numeric import Numeric, NumericType, numeric_promotion_type, numeric_type_of, promote_numeric_to
+from .numeric_primitive import NumericPrimitive, NumericPrimitiveType
+from .primitive import Primitive, PrimitiveType, primitive_type_of
 
 #: Scalar type: either primitive or numeric.
 ScalarType: TypeAlias = PrimitiveType | NumericType

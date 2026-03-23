@@ -4,12 +4,13 @@ import logging
 from collections.abc import Sequence
 
 from umbi.datatypes import Scalar, ScalarType
-from .sized_type import SizedType, BOOL1
-from .struct_type import Struct, StructType, bytes_to_struct, struct_to_bytes
+
 from .scalar import (
     bytes_to_scalar,
     scalar_to_bytes,
 )
+from .sized_type import BOOL1, SizedType
+from .struct_type import Struct, StructType, bytes_to_struct, struct_to_bytes
 
 logger = logging.getLogger(__name__)
 

@@ -9,9 +9,9 @@ from marshmallow import fields
 from .annotations import AnnotationCategoryToAnnotationMap, AnnotationDescription
 from .file_data import FileData, FileDataSchema
 from .json_schema import (
+    FieldUint32,
     JsonSchema,
     JsonSchemaResult,
-    FieldUint32,
 )
 from .model_data import ModelData, ModelDataSchema
 from .transition_system import TransitionSystem, TransitionSystemSchema

@@ -15,17 +15,17 @@ from .sequence import (
     vector_to_bytes_with_ranges,
 )
 from .sized_type import (
-    SizedType,
     BOOL1,
     UINT32,
     UINT64,
+    SizedType,
     max_num_bits_for_collection_element,
 )
 from .struct_type import (
-    StructType,
-    StructPadding,
-    StructAttribute,
     Struct,
+    StructAttribute,
+    StructPadding,
+    StructType,
 )
 
 __all__ = [

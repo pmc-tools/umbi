@@ -14,29 +14,28 @@ Scalar types: the following describe enums for names of scalar types and aliases
 TODO: consider moving json-related definitions outside of datatypes
 """
 
-from .primitive import PrimitiveType, Primitive
-from .numeric_primitive import NumericPrimitiveType, NumericPrimitive
-from .interval import IntervalType, Interval
-from .numeric import NumericType, Numeric
-from .scalar import (
-    ScalarType,
-    Scalar,
-    scalar_promotion_type_of,
-    promote_scalars_to,
-    promote_scalars,
-    scalar_type_dispatch,
-    validate_scalar_value_type,
-)
+from .interval import Interval, IntervalType
 from .json import (
-    JsonPrimitive,
-    JsonList,
     JsonDict,
     JsonLike,
+    JsonList,
+    JsonPrimitive,
     json_remove_none_dict_values,
     json_to_string,
     string_to_json,
 )
-
+from .numeric import Numeric, NumericType
+from .numeric_primitive import NumericPrimitive, NumericPrimitiveType
+from .primitive import Primitive, PrimitiveType
+from .scalar import (
+    Scalar,
+    ScalarType,
+    promote_scalars,
+    promote_scalars_to,
+    scalar_promotion_type_of,
+    scalar_type_dispatch,
+    validate_scalar_value_type,
+)
 
 __all__ = [
     # primitive.py

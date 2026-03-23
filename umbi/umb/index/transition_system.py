@@ -5,9 +5,7 @@ Transition system schemas and classes.
 from dataclasses import dataclass
 from typing import Literal, Type
 
-from marshmallow import fields, validate, ValidationError, validates_schema
-
-from .type import SizedTypeSchema
+from marshmallow import ValidationError, fields, validate, validates_schema
 
 from umbi.binary import SizedType
 
@@ -17,6 +15,7 @@ from .json_schema import (
     JsonSchema,
     JsonSchemaResult,
 )
+from .type import SizedTypeSchema
 
 
 class TransitionSystemSchema(JsonSchema):

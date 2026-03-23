@@ -1,9 +1,9 @@
 """Numeric datatypes (integers, floats, rationals) that allow promotions."""
 
 import enum
+from collections.abc import Collection
 from fractions import Fraction
 from typing import TypeAlias
-from collections.abc import Collection
 
 
 class NumericPrimitiveType(str, enum.Enum):

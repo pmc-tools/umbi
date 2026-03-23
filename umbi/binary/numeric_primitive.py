@@ -2,8 +2,11 @@
 
 import struct
 from fractions import Fraction
+
 from bitstring import BitArray
+
 from umbi.datatypes import NumericPrimitive, NumericPrimitiveType
+
 from .utils import split_bits_half, split_bytes_half
 
 # Floats

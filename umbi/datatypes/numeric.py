@@ -3,16 +3,16 @@ Numeric type: union of numeric primitive types and intervals.
 """
 
 from collections.abc import Collection
+from typing import TypeAlias
 
+from .interval import Interval, IntervalType, interval_promotion_type, promote_interval_to
 from .numeric_primitive import (
     NumericPrimitive,
     NumericPrimitiveType,
-    numeric_primitive_type_of,
     numeric_primitive_promotion_type,
+    numeric_primitive_type_of,
     promote_numeric_primitive_to,
 )
-from .interval import Interval, IntervalType, interval_promotion_type, promote_interval_to
-from typing import TypeAlias
 
 #: Numeric type: either a primitive numeric type or an interval.
 NumericType: TypeAlias = NumericPrimitiveType | IntervalType

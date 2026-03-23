@@ -73,6 +73,9 @@ exclude = [
 ]
 target-version = "py311"
 
+[tool.ruff.lint]
+select = ["I"]  # enable isort (import sorting) rules
+
 [tool.pyright]
 include = [
   "umbi",

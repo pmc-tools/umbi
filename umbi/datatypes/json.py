@@ -1,8 +1,8 @@
 """JSON datatype."""
 
 import json as std_json
-from typing import TypeAlias
 from collections.abc import Iterable
+from typing import TypeAlias
 
 #: JSON scalar values (`null`, boolean, number, string).
 JsonPrimitive: TypeAlias = None | bool | int | float | str

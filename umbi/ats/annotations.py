@@ -1,18 +1,19 @@
-from dataclasses import dataclass, field
 import itertools
+import logging
+from collections.abc import Sequence
+from dataclasses import dataclass, field
+from typing import cast
+
 from umbi.datatypes import (
-    PrimitiveType,
-    ScalarType,
-    Scalar,
-    NumericType,
     NumericPrimitiveType,
+    NumericType,
+    PrimitiveType,
+    Scalar,
+    ScalarType,
     scalar_promotion_type_of,
 )
 
-from typing import cast
-from collections.abc import Sequence
 from .entity_class import EntityClass
-import logging
 
 logger = logging.getLogger(__name__)
 

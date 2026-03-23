@@ -1,23 +1,22 @@
 """Reading and writing umbfiles into ExplicitUmb."""
 
+import logging
 import pathlib
 from enum import Enum
-import logging
+
+import umbi.binary
+import umbi.datatypes
+import umbi.tar
+from umbi.binary import UINT32, UINT64
+from umbi.datatypes import PrimitiveType
 
 from .explicit_umb import ExplicitUmb
-import umbi.binary
-from umbi.binary import UINT32, UINT64
-import umbi.datatypes
-from umbi.datatypes import PrimitiveType
-import umbi.io
-
 from .index import (
     AnnotationDescription,
-    ValuationDescription,
     UmbIndex,
+    ValuationDescription,
     umbi_file_data,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -36,10 +35,10 @@ class UmbFile(Enum):
     BRANCH_TO_PROBABILITY = "branch-to-probability.bin"
 
 
-class UmbDecoder(umbi.io.TarCoder):
+class UmbDecoder(umbi.tar.TarCoder):
     """Converting tarfiles to ExplicitUmb."""
 
-    #: to keep track of which files were read; reset upon calling decode() and modified upon calling get_file()
+    #: to keep track of which files were read; reset upon calling decode() and modified upon calling read_file()
     filename_read: dict[str, bool] | None = None
 
     def __init__(self, umbpath: str | pathlib.Path | None = None, *args, **kwargs):
@@ -56,14 +55,18 @@ class UmbDecoder(umbi.io.TarCoder):
     #     super().read(tarpath)
     #     self.reset_read_tracking()
 
-    def get_file(self, filename: str, required: bool = False) -> bytes | None:
+    def read_file(self, filename: str, optional: bool = False) -> bytes | None:
         """Read raw bytes from a specific file in the tarball. Mark the file as read."""
         if self.filename_read is not None and self.has_file(filename):
             self.filename_read[filename] = True
-        return super().get_file(filename, required)
+        return super().read_file(filename, optional)
 
     def list_unread_files(self, strict: bool = False):
-        """List unread files from the tarfile. Raise an error if there are any unread files in strict mode."""
+        """
+        List unread files from the tarfile.
+
+        :raises ValueError: if strict is True and there are any unread files
+        """
         if self.filename_read is None:
             return
         unread_files = [f for f, read in self.filename_read.items() if not read]
@@ -73,7 +76,7 @@ class UmbDecoder(umbi.io.TarCoder):
             raise ValueError(f"unread files in umbfile: {unread_files}")
 
     def read_index_file(self, umb: ExplicitUmb):
-        json_obj = self.read_json(UmbFile.INDEX.value, required=True)
+        json_obj = self.read_json(UmbFile.INDEX.value, optional=False)
         pretty_str = umbi.datatypes.json_to_string(json_obj)
         logger.debug(f"loaded the following index file:\n{pretty_str}")
         idx = UmbIndex.from_json(json_obj)
@@ -87,11 +90,13 @@ class UmbDecoder(umbi.io.TarCoder):
         if ts.num_initial_states == 0:
             umb.state_is_initial = [False] * ts.num_states
         else:
-            umb.state_is_initial = self.read_bitvector(UmbFile.STATE_IS_INITIAL.value, ts.num_states)
+            bitvector = self.read_bitvector(UmbFile.STATE_IS_INITIAL.value, ts.num_states, optional=False)
+            assert bitvector is not None
+            umb.state_is_initial = bitvector
 
-        umb.state_to_choices = self.read_vector(UmbFile.STATE_TO_CHOICES.value, UINT64, required=False)
+        umb.state_to_choices = self.read_vector(UmbFile.STATE_TO_CHOICES.value, UINT64, optional=True)
         if ts.num_players > 0:
-            umb.state_to_player = self.read_vector(UmbFile.STATE_TO_PLAYER.value, UINT32, required=False)
+            umb.state_to_player = self.read_vector(UmbFile.STATE_TO_PLAYER.value, UINT32, optional=True)
 
         if ts.time == "discrete":
             # ignore the file, all states are probabilistic
@@ -103,14 +108,16 @@ class UmbDecoder(umbi.io.TarCoder):
             else:
                 # ts.time == "urgent-stochastic"
                 if self.has_file(UmbFile.STATE_IS_MARKOVIAN.value):
-                    umb.state_is_markovian = self.read_bitvector(UmbFile.STATE_IS_MARKOVIAN.value, ts.num_states)
+                    umb.state_is_markovian = self.read_bitvector(
+                        UmbFile.STATE_IS_MARKOVIAN.value, ts.num_states, optional=False
+                    )
                 else:
                     umb.state_is_markovian = [True] * ts.num_states
 
         if ts.time == "stochastic" and ts.exit_rate_type is not None:
             if self.has_file(UmbFile.STATE_TO_EXIT_RATE.value):
                 umb.state_to_exit_rate = self.read_vector(
-                    UmbFile.STATE_TO_EXIT_RATE.value, ts.exit_rate_type, required=True
+                    UmbFile.STATE_TO_EXIT_RATE.value, ts.exit_rate_type, optional=False
                 )
 
     def read_action_files(self, umb: ExplicitUmb, applies_to: str, num_items: int):
@@ -127,7 +134,7 @@ class UmbDecoder(umbi.io.TarCoder):
             # default: everything maps to action 0
             item_to_actions = [0] * num_items
         else:
-            item_to_actions = self.read_vector(filename, UINT32)
+            item_to_actions = self.read_vector(filename, UINT32, optional=True)
 
         if applies_to == "choices":
             umb.choice_to_choice_action = item_to_actions
@@ -136,7 +143,7 @@ class UmbDecoder(umbi.io.TarCoder):
 
         filename_csr = f"{path}/string-mapping.bin"
         if self.has_file(filename_csr):
-            action_to_string = self.read_strings(f"{path}/strings.bin", required=True, filename_csr=filename_csr)
+            action_to_string = self.read_strings(f"{path}/strings.bin", optional=False, filename_csr=filename_csr)
             if applies_to == "choices":
                 umb.choice_action_to_string = action_to_string
             else:  # branches
@@ -144,13 +151,13 @@ class UmbDecoder(umbi.io.TarCoder):
 
     def read_transition_files(self, umb: ExplicitUmb):
         """Read transition-related files."""
-        umb.choice_to_branches = self.read_vector(UmbFile.CHOICE_TO_BRANCHES.value, UINT64, required=False)
-        umb.branch_to_target = self.read_vector(UmbFile.BRANCH_TO_TARGET.value, UINT64, required=False)
+        umb.choice_to_branches = self.read_vector(UmbFile.CHOICE_TO_BRANCHES.value, UINT64, optional=True)
+        umb.branch_to_target = self.read_vector(UmbFile.BRANCH_TO_TARGET.value, UINT64, optional=True)
         ts = umb.index.transition_system
 
         if ts.branch_probability_type is not None:
             umb.branch_to_probability = self.read_vector(
-                UmbFile.BRANCH_TO_PROBABILITY.value, ts.branch_probability_type, required=True
+                UmbFile.BRANCH_TO_PROBABILITY.value, ts.branch_probability_type, optional=False
             )
 
         if ts.num_choice_actions > 0:
@@ -197,7 +204,7 @@ class UmbDecoder(umbi.io.TarCoder):
             if annotation.type.type == PrimitiveType.STRING:
                 vector = self.read_strings(
                     f"{path}/strings.bin",
-                    required=True,
+                    optional=False,
                     filename_csr=f"{path}/string-mapping.bin",
                 )
             elif annotation.type.type == PrimitiveType.BOOL:
@@ -206,9 +213,9 @@ class UmbDecoder(umbi.io.TarCoder):
                     "choices": ts.num_choices,
                     "branches": ts.num_branches,
                 }[applies_to]
-                vector = self.read_bitvector(f"{path}/values.bin", num_entries=num_entries)
+                vector = self.read_bitvector(f"{path}/values.bin", num_entries=num_entries, optional=False)
             else:
-                vector = self.read_vector(f"{path}/values.bin", annotation.type, required=True)
+                vector = self.read_vector(f"{path}/values.bin", annotation.type, optional=False)
             assert isinstance(vector, list), "expected a list"
             umb.annotations[group][name][applies_to] = vector
 
@@ -241,7 +248,7 @@ class UmbDecoder(umbi.io.TarCoder):
             raise NotImplementedError("reading multiple valuation classes is not implemented")
         struct_type = valuation_desc.classes[0]
         assert not struct_type.contains_strings, "reading valuations with strings is not implemented"
-        bytes = self.get_file(f"valuations/{applies_to}/valuations.bin", required=True)
+        bytes = self.read_file(f"valuations/{applies_to}/valuations.bin", optional=False)
         assert bytes is not None, "expected non-None bytes"
         expected_size = struct_type.size_bytes * num_entries
         assert len(bytes) == expected_size, (
@@ -258,7 +265,7 @@ class UmbDecoder(umbi.io.TarCoder):
         if ts.observation_probability_type is not None:
             raise NotImplementedError("reading stochastic observations is not implemented")
         applies_to = ts.observations_apply_to
-        umb.entity_to_observation = self.read_vector(f"observations/{applies_to}/values.bin", UINT64, required=True)
+        umb.entity_to_observation = self.read_vector(f"observations/{applies_to}/values.bin", UINT64, optional=False)
 
     def decode(self, strict: bool = False) -> ExplicitUmb:
         """Decode the tarfile contents into an ExplicitUmb object.
@@ -277,19 +284,19 @@ class UmbDecoder(umbi.io.TarCoder):
         return umb
 
 
-class UmbEncoder(umbi.io.TarCoder):
+class UmbEncoder(umbi.tar.TarCoder):
     def add_index_file(self, umb: ExplicitUmb):
         """Add the index file."""
         umb.index.validate()
         json_obj = umb.index.to_json()
-        self.add_json(UmbFile.INDEX.value, json_obj, required=True)
+        self.add_json(UmbFile.INDEX.value, json_obj, optional=False)
 
     def add_state_files(self, umb: ExplicitUmb):
         """Add state-related files."""
-        self.add_bitvector(UmbFile.STATE_IS_INITIAL.value, umb.state_is_initial, required=True)
-        self.add_vector(UmbFile.STATE_TO_CHOICES.value, UINT64, umb.state_to_choices)
+        self.add_bitvector(UmbFile.STATE_IS_INITIAL.value, umb.state_is_initial, optional=False)
+        self.add_vector(UmbFile.STATE_TO_CHOICES.value, UINT64, umb.state_to_choices, optional=True)
         if umb.index.transition_system.num_players > 0:
-            self.add_vector(UmbFile.STATE_TO_PLAYER.value, UINT32, umb.state_to_player)
+            self.add_vector(UmbFile.STATE_TO_PLAYER.value, UINT32, umb.state_to_player, optional=True)
 
         if umb.index.transition_system.time == "urgent-stochastic":
             state_is_markovian = (
@@ -297,19 +304,20 @@ class UmbEncoder(umbi.io.TarCoder):
                 if umb.state_is_markovian is not None
                 else [True] * umb.index.transition_system.num_states
             )
-            self.add_bitvector(UmbFile.STATE_IS_MARKOVIAN.value, state_is_markovian)
+            self.add_bitvector(UmbFile.STATE_IS_MARKOVIAN.value, state_is_markovian, optional=True)
         if umb.index.transition_system.time != "discrete":
             if umb.index.transition_system.exit_rate_type is not None:
                 self.add_vector(
                     UmbFile.STATE_TO_EXIT_RATE.value,
                     umb.index.transition_system.exit_rate_type,
                     umb.state_to_exit_rate,
+                    optional=True,
                 )
 
     def add_transition_files(self, umb: ExplicitUmb):
         """Add transition-related files."""
-        self.add_vector(UmbFile.CHOICE_TO_BRANCHES.value, UINT64, umb.choice_to_branches)
-        self.add_vector(UmbFile.BRANCH_TO_TARGET.value, UINT64, umb.branch_to_target)
+        self.add_vector(UmbFile.CHOICE_TO_BRANCHES.value, UINT64, umb.choice_to_branches, optional=True)
+        self.add_vector(UmbFile.BRANCH_TO_TARGET.value, UINT64, umb.branch_to_target, optional=True)
         ts = umb.index.transition_system
 
         if ts.branch_probability_type is not None:
@@ -377,11 +385,11 @@ class UmbEncoder(umbi.io.TarCoder):
             path = f"annotations/{group}/{name}/{applies_to}"
             values = umb.annotations[group][name][applies_to]
             if annotation.type.type == PrimitiveType.STRING:
-                self.add_strings(f"{path}/strings.bin", values, f"{path}/string-mapping.bin", required=True)
+                self.add_strings(f"{path}/strings.bin", values, f"{path}/string-mapping.bin", optional=False)
             elif annotation.type.type == PrimitiveType.BOOL:
-                self.add_bitvector(f"{path}/values.bin", values, required=True)
+                self.add_bitvector(f"{path}/values.bin", values, optional=False)
             else:
-                self.add_vector(f"{path}/values.bin", annotation.type, values, required=True)
+                self.add_vector(f"{path}/values.bin", annotation.type, values, optional=False)
 
     def add_valuation_files(self, umb: ExplicitUmb):
         """Add valuation-related files."""
@@ -427,7 +435,7 @@ class UmbEncoder(umbi.io.TarCoder):
             raise NotImplementedError("writing stochastic observations is not implemented")
         applies_to = ts.observations_apply_to
         assert umb.entity_to_observation is not None, "umb.entity_to_observation must be specified"
-        self.add_vector(f"observations/{applies_to}/values.bin", UINT64, umb.entity_to_observation, required=True)
+        self.add_vector(f"observations/{applies_to}/values.bin", UINT64, umb.entity_to_observation, optional=False)
 
     def encode(self, umb: ExplicitUmb, insert_umbi_metadata: bool = True):
         """Encode ExplicitUmb into tarfile contents."""

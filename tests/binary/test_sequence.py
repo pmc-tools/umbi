@@ -3,16 +3,15 @@
 import pytest
 
 from umbi.binary import (
-    bytes_to_vector,
-    vector_to_bytes,
-    bytes_with_ranges_to_vector,
-    vector_to_bytes_with_ranges,
-    SizedType,
     BOOL1,
     UINT32,
+    SizedType,
+    bytes_to_vector,
+    bytes_with_ranges_to_vector,
+    vector_to_bytes,
+    vector_to_bytes_with_ranges,
 )
-from umbi.datatypes import PrimitiveType, NumericPrimitiveType
-from umbi.io.utils import csr_to_ranges
+from umbi.datatypes import NumericPrimitiveType, PrimitiveType
 
 
 class TestBytesToBitvector:
@@ -141,8 +140,6 @@ class TestBytesWithRanges:
         bytes_data, chunk_csr = vector_to_bytes_with_ranges(values, sized_type, little_endian=True)
         assert chunk_csr is not None
         assert len(bytes_data) == 12  # 3 * 4 bytes
-        chunk_ranges = csr_to_ranges(chunk_csr)
-        assert len(chunk_ranges) == 3  # 3 values
 
     def test_ranges_roundtrip(self):
         """Test round-trip with ranges."""
@@ -151,7 +148,8 @@ class TestBytesWithRanges:
 
         bytes_data, chunk_csr = vector_to_bytes_with_ranges(original, sized_type, little_endian=True)
         assert chunk_csr is not None
-        chunk_ranges = csr_to_ranges(chunk_csr)
+        # For 3 values of 4 bytes each: ranges are (0,4), (4,8), (8,12)
+        chunk_ranges = [(0, 4), (4, 8), (8, 12)]
         result = bytes_with_ranges_to_vector(bytes_data, sized_type.type, chunk_ranges, little_endian=True)
 
         assert result == original

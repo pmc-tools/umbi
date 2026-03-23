@@ -1,27 +1,28 @@
 """Tests for umbi.binary.numeric_primitive module."""
 
-import pytest
 from fractions import Fraction
+
+import pytest
 from bitstring import BitArray
 
 from umbi.binary.numeric_primitive import (
-    bytes_to_double,
-    double_to_bytes,
     bits_to_double,
-    double_to_bits,
-    bytes_to_integer,
-    integer_to_bytes,
     bits_to_integer,
-    integer_to_bits,
-    bytes_to_rational,
-    rational_to_bytes,
-    bits_to_rational,
-    rational_to_bits,
-    normalize_rational,
-    bytes_to_numeric_primitive,
-    numeric_primitive_to_bytes,
     bits_to_numeric_primitive,
+    bits_to_rational,
+    bytes_to_double,
+    bytes_to_integer,
+    bytes_to_numeric_primitive,
+    bytes_to_rational,
+    double_to_bits,
+    double_to_bytes,
+    integer_to_bits,
+    integer_to_bytes,
+    normalize_rational,
     numeric_primitive_to_bits,
+    numeric_primitive_to_bytes,
+    rational_to_bits,
+    rational_to_bytes,
 )
 from umbi.datatypes import NumericPrimitiveType
 

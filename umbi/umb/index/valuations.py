@@ -4,17 +4,18 @@ Variable valuation schemas and classes.
 
 from dataclasses import dataclass, field
 from typing import Any, cast
+
 from marshmallow import fields, post_load, validate
 from marshmallow_oneofschema.one_of_schema import OneOfSchema
 
-from umbi.binary.struct_type import StructPadding, StructAttribute, StructType
-from .type import SizedTypeSchema
+from umbi.binary.struct_type import StructAttribute, StructPadding, StructType
 
 from .json_schema import (
     FieldUint,
     JsonSchema,
     JsonSchemaResult,
 )
+from .type import SizedTypeSchema
 
 
 class ValuationPaddingSchema(JsonSchema):

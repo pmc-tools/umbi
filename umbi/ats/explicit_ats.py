@@ -1,17 +1,17 @@
 import logging
+from collections.abc import Iterable
 from dataclasses import dataclass, field, fields
 from enum import Enum
-from collections.abc import Iterable
 
 from umbi.datatypes import Numeric
 
-from .entity_class import EntityClass
 from .annotations import (
     Annotation,
-    RewardAnnotation,
     AtomicPropositionAnnotation,
     ObservationAnnotation,
+    RewardAnnotation,
 )
+from .entity_class import EntityClass
 from .model_info import ModelInfo
 from .variable_valuations import EntityClassValuations
 

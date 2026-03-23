@@ -3,13 +3,13 @@
 import pytest
 
 from umbi.binary import (
+    BOOL1,
+    UINT32,
     SizedType,
-    StructType,
     Struct,
     StructAttribute,
     StructPadding,
-    BOOL1,
-    UINT32,
+    StructType,
 )
 from umbi.binary.struct_type import bytes_to_struct, struct_to_bytes
 from umbi.datatypes import NumericPrimitiveType, PrimitiveType
@@ -293,7 +293,6 @@ class TestOptionalFields:
 
         original: Struct = {"optional_value": None}
         bytes_data = struct_to_bytes(original, struct_type)
-        print(len(bytes_data), bytes_data)
         result = bytes_to_struct(bytes_data, struct_type)
 
         assert result["optional_value"] is None

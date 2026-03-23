@@ -1,4 +1,5 @@
 import logging
+
 from umbi.datatypes import Scalar
 
 logger = logging.getLogger(__name__)

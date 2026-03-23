@@ -1,16 +1,17 @@
 """Tests for umbi.binary.scalar module."""
 
-import pytest
 from fractions import Fraction
+
+import pytest
 from bitstring import BitArray
 
-from umbi.binary import scalar_to_bytes, bytes_to_scalar
+from umbi.binary import bytes_to_scalar, scalar_to_bytes
 from umbi.binary.scalar import bits_to_scalar, scalar_to_bits
 from umbi.datatypes import (
-    PrimitiveType,
-    NumericPrimitiveType,
     Interval,
     IntervalType,
+    NumericPrimitiveType,
+    PrimitiveType,
 )
 
 

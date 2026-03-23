@@ -1,5 +1,3 @@
-"""Utilities for reading/writing tarfiles."""
-
 import collections.abc
 import io as std_io
 import logging
@@ -11,7 +9,9 @@ logger = logging.getLogger(__name__)
 
 
 class TarFile(dict[str, bytes]):
-    """A simple in-memory representation of a tarfile: a mapping from filenames to bytestrings."""
+    """A simple in-memory representation of a tarfile: a mapping from filenames to bytestrings.
+    TODO: consider adding lazy loading of file contents for large tarfiles
+    """
 
     def __init__(self, tarpath: str | pathlib.Path | None = None, *args, **kwargs):
         """Initialize TarFile, optionally loading from a tarball."""
@@ -28,17 +28,17 @@ class TarFile(dict[str, bytes]):
         """Check if the tarfile contains the given file."""
         return filename in self
 
-    def get_file(self, filename: str, required: bool = False) -> bytes | None:
+    def read_file(self, filename: str, optional: bool = False) -> bytes | None:
         """Read bytestring associated with a specific file in the tarfile.
 
         :param filename: name of the file to read
-        :param required: whether the file is required
-        :return: bytestring, or None if the optional file is not found
-        :raises KeyError: if the required file is not found
+        :param optional: if False, the file is mandatory and must exist
+        :return: file contents as bytes, or None if optional=True and file not found
+        :raises KeyError: if optional=False and the file is not found
         """
         if not self.has_file(filename):
-            if required:
-                raise KeyError(f"tarfile does not have a required file {filename}")
+            if not optional:
+                raise KeyError(f"tarfile does not have a mandatory file {filename}")
             else:
                 logger.debug(f"optional file {filename} not found, skipping")
                 return None
@@ -46,7 +46,13 @@ class TarFile(dict[str, bytes]):
         return self[filename]
 
     def add_file(self, filename: str, data: bytes, overwrite: bool = False) -> None:
-        """Add a file to the tarfile."""
+        """Add a file to the tarfile.
+
+        :param filename: name of the file to add
+        :param data: bytestring to associate with the file
+        :param overwrite: if False, raise an error if the file already exists; if True, overwrite existing file
+        :raises KeyError: if the file already exists and overwrite is False
+        """
         if self.has_file(filename):
             if not overwrite:
                 raise KeyError(f"file {filename} already exists in the tarfile")
@@ -55,18 +61,28 @@ class TarFile(dict[str, bytes]):
         self[filename] = data
 
     def read(self, tarpath: str | pathlib.Path) -> None:
-        """Load tarfile contents from a tarball."""
-        new_tarfile = tarfile_read(tarpath)
+        """Replace tarfile contents with the ones from a tarball.
+
+        :param tarpath: path to a tarball
+        :raises FileNotFoundError: if the tarball is not found
+        :raises tarfile.TarError: if the file cannot be read as a tarball
+        """
+        new_tarfile = read(tarpath)
         self.clear()
         self.update(new_tarfile)
 
     def write(self, tarpath: str | pathlib.Path, compression: typing.Literal["gz", "bz2", "xz"] | None = "gz") -> None:
-        """Write tarfile contents to a tarball."""
-        tarfile_write(tarpath, self, compression)
+        """Write tarfile contents to a tarball.
 
-    def file_to_string(self, filename: str) -> str:
+        :param tarpath: path to a tarball
+        :param compression: compression algorithm or None for no compression
+        :raises IOError: if the tarball cannot be written
+        """
+        write(tarpath, self, compression)
+
+    def _file_to_string(self, filename: str) -> str:
         """Format the contents of a specific file in the tarfile as a string for debugging."""
-        assert self.has_file(filename), f"file {filename} not found in tarfile"
+        # assert self.has_file(filename), f"file {filename} not found in tarfile"
         data = self[filename]
         return f"{data!r}"
 
@@ -75,17 +91,17 @@ class TarFile(dict[str, bytes]):
         s = f"{self.__class__.__name__} ({num_files} files):\n"
         for i, filename in enumerate(self.filenames, start=1):
             s += f"file {i}/{num_files}: {filename} ({len(self[filename])} bytes)\n"
-            s += f"{self.file_to_string(filename)}\n"
+            s += f"{self._file_to_string(filename)}\n"
         return s
 
 
-def tarfile_read(tarpath: str | pathlib.Path) -> TarFile:
+def read(tarpath: str | pathlib.Path) -> TarFile:
     """Load TarFile from a tarball.
 
-    :param tarpath: path to a tarball file
+    :param tarpath: path to a tarball
     :return: a TarFile object containing filename -> bytestring mappings
-    :raises FileNotFoundError: if the tarball file is not found
-    :raises tarfile.TarError: if the tarball file cannot be read as a tarball
+    :raises FileNotFoundError: if the tarball is not found
+    :raises tarfile.TarError: if the file cannot be read as a tarball
     """
     logger.debug(f"loading tarfile from {tarpath} ...")
     filename_data = TarFile()
@@ -94,22 +110,23 @@ def tarfile_read(tarpath: str | pathlib.Path) -> TarFile:
             if member.isfile():
                 fileobj = tar.extractfile(member)
                 if fileobj is None:
-                    raise KeyError(f"could not extract file {member.name} from {tarpath}")
+                    raise std_tarfile.TarError(f"failed to extract file {member.name} from tarball")
                 filename_data[member.name] = fileobj.read()
     logger.debug("tarfile successfully loaded")
     return filename_data
 
 
-def tarfile_write(
+def write(
     tarpath: str | pathlib.Path,
     tarfile: TarFile,
     compression: typing.Literal["gz", "bz2", "xz"] | None = "gz",
 ):
     """Write TarFile to a tarball.
 
-    :param tarpath: path to a tarball file
+    :param tarpath: path to a tarball
     :param tarfile: a TarFile object containing filename -> bytestring mappings
     :param compression: compression algorithm or None for no compression
+    :raises IOError: if the tarball cannot be written
     """
     logger.debug(f"writing tarfile {tarpath} with compression '{compression}' ...")
     mode = "w"

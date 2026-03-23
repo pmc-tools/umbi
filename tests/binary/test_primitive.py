@@ -4,14 +4,14 @@ import pytest
 from bitstring import BitArray
 
 from umbi.binary.primitive import (
-    bool_to_bits,
     bits_to_bool,
+    bits_to_string,
+    bool_to_bits,
     bool_to_bytes,
     bytes_to_bool,
     bytes_to_string,
-    string_to_bytes,
     string_to_bits,
-    bits_to_string,
+    string_to_bytes,
 )
 
 

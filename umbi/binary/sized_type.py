@@ -3,19 +3,19 @@
 from collections.abc import Collection
 from dataclasses import dataclass
 from fractions import Fraction
+
 from umbi.datatypes import (
-    Primitive,
-    PrimitiveType,
-    NumericPrimitive,
-    NumericPrimitiveType,
     Interval,
     IntervalType,
+    NumericPrimitive,
+    NumericPrimitiveType,
+    Primitive,
+    PrimitiveType,
     Scalar,
     ScalarType,
     scalar_type_dispatch,
     validate_scalar_value_type,
 )
-
 
 # Sized type definitions
 

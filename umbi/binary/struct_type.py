@@ -1,13 +1,16 @@
 """Definitions and utilities for struct datatypes."""
 
-from bitstring import BitArray
 from collections.abc import Sequence
-from dataclasses import dataclass, field as dataclass_field
+from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from typing import TypeAlias
 
+from bitstring import BitArray
+
 from umbi.datatypes import IntervalType, NumericPrimitiveType, PrimitiveType, Scalar
-from .sized_type import SizedType, UINT64
+
 from .scalar import bits_to_scalar, scalar_to_bits
+from .sized_type import UINT64, SizedType
 from .utils import split_bytes
 
 # Struct type definitions

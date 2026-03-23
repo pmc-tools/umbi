@@ -4,10 +4,10 @@ umbi demo: Create an ATS from a grid string.
 
 from __future__ import annotations
 
+import logging
 from fractions import Fraction
 
 import umbi
-import logging
 
 logger = logging.getLogger(__name__)
 

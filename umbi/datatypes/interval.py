@@ -2,13 +2,14 @@
 Interval datatypes.
 """
 
-from dataclasses import dataclass
 from collections.abc import Collection
+from dataclasses import dataclass
+
 from .numeric_primitive import (
-    NumericPrimitiveType,
     NumericPrimitive,
-    numeric_primitive_type_of,
+    NumericPrimitiveType,
     numeric_primitive_promotion_type,
+    numeric_primitive_type_of,
     promote_numeric_primitive_to,
 )
 

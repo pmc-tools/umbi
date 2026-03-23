@@ -4,10 +4,10 @@ import pytest
 from bitstring import BitArray
 
 from umbi.binary.utils import (
-    split_bytes,
-    split_bytes_half,
     split_bits,
     split_bits_half,
+    split_bytes,
+    split_bytes_half,
 )
 
 

@@ -2,8 +2,8 @@
 
 import pytest
 
-from umbi.binary import SizedType, BOOL1, UINT32, UINT64
-from umbi.datatypes import PrimitiveType, NumericPrimitiveType
+from umbi.binary import BOOL1, UINT32, UINT64, SizedType
+from umbi.datatypes import NumericPrimitiveType, PrimitiveType
 
 
 class TestSizedTypeBasics:

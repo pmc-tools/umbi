@@ -1,10 +1,11 @@
-from dataclasses import dataclass, field
-
-from umbi.datatypes import ScalarType, Scalar, scalar_promotion_type_of
 from collections.abc import Iterable
-from .entity_class import EntityClass
-from .domain import Domain
+from dataclasses import dataclass, field
 from typing import TypeAlias
+
+from umbi.datatypes import Scalar, ScalarType, scalar_promotion_type_of
+
+from .domain import Domain
+from .entity_class import EntityClass
 
 
 @dataclass

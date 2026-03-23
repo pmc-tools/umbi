@@ -2,18 +2,18 @@
 File data schemas and classes.
 """
 
-from dataclasses import dataclass
 import time
+from dataclasses import dataclass
 
 from marshmallow import fields
 
-import umbi.version
 import umbi.datatypes
+import umbi.version
 
 from .json_schema import (
+    FieldUint64,
     JsonSchema,
     JsonSchemaResult,
-    FieldUint64,
 )
 
 

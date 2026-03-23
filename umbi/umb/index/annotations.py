@@ -9,12 +9,11 @@ from marshmallow import fields, validate
 
 from umbi.binary import SizedType
 
-from .type import SizedTypeSchema
-
 from .json_schema import (
     JsonSchema,
     JsonSchemaResult,
 )
+from .type import SizedTypeSchema
 
 
 class AnnotationSchema(JsonSchema):

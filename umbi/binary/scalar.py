@@ -3,25 +3,26 @@
 from bitstring import BitArray
 
 from umbi.datatypes import (
-    PrimitiveType,
     Interval,
     IntervalType,
+    PrimitiveType,
     Scalar,
     ScalarType,
     scalar_type_dispatch,
     validate_scalar_value_type,
 )
-from .primitive import (
-    bytes_to_primitive,
-    primitive_to_bytes,
-    bits_to_primitive,
-    primitive_to_bits,
-)
+
 from .numeric_primitive import (
-    bytes_to_numeric_primitive,
-    numeric_primitive_to_bytes,
     bits_to_numeric_primitive,
+    bytes_to_numeric_primitive,
     numeric_primitive_to_bits,
+    numeric_primitive_to_bytes,
+)
+from .primitive import (
+    bits_to_primitive,
+    bytes_to_primitive,
+    primitive_to_bits,
+    primitive_to_bytes,
 )
 from .utils import split_bytes_half
 

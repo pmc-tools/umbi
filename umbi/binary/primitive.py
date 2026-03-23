@@ -1,6 +1,7 @@
 """(De)serializers for primitive types."""
 
 from bitstring import BitArray
+
 from umbi.datatypes import Primitive, PrimitiveType
 
 # Booleans

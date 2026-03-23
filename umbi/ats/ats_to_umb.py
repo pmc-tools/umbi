@@ -1,23 +1,27 @@
 import pathlib
 
+import umbi.datatypes
 import umbi.umb
 import umbi.umb.index
-import umbi.datatypes
 import umbi.version
-
-import umbi.umb
 from umbi.binary import SizedType
 
+from .annotations import Annotation, AtomicPropositionAnnotation, ObservationAnnotation, RewardAnnotation
+from .entity_class import EntityClass
+from .explicit_ats import ExplicitAts, TimeType
+from .model_info import ModelInfo
+from .variable_valuations import EntityClassValuations, EntityValuations
 
-def explicit_umb_to_explicit_ats(umb: umbi.umb.ExplicitUmb) -> umbi.ats.ExplicitAts:
+
+def explicit_umb_to_explicit_ats(umb: umbi.umb.ExplicitUmb) -> ExplicitAts:
     umb.validate()
-    ats = umbi.ats.ExplicitAts()
+    ats = ExplicitAts()
 
     ## index
     # skip format_version, format_revision and file_data
     md = umb.index.model_data
     if md is not None:
-        ats.model_info = umbi.ats.ModelInfo(
+        ats.model_info = ModelInfo(
             name=md.name,
             version=md.version,
             authors=md.authors,
@@ -28,7 +32,7 @@ def explicit_umb_to_explicit_ats(umb: umbi.umb.ExplicitUmb) -> umbi.ats.Explicit
         )
     # load index.transition_system
     ts = umb.index.transition_system
-    ats.time = umbi.ats.TimeType(ts.time)
+    ats.time = TimeType(ts.time)
     ats.num_players = ts.num_players
     ats.num_states = ts.num_states
     ats.num_initial_states = ts.num_initial_states
@@ -60,9 +64,9 @@ def explicit_umb_to_explicit_ats(umb: umbi.umb.ExplicitUmb) -> umbi.ats.Explicit
         assert umb.annotations is not None
         for category, name_to_annotation in umb.index.annotations.items():
             constructor = {
-                "rewards": umbi.ats.RewardAnnotation,
-                "aps": umbi.ats.AtomicPropositionAnnotation,
-            }[category] or umbi.ats.Annotation
+                "rewards": RewardAnnotation,
+                "aps": AtomicPropositionAnnotation,
+            }[category] or Annotation
             for name, umb_annotation in name_to_annotation.items():
                 ats_annotation = constructor(
                     name=name,
@@ -71,15 +75,15 @@ def explicit_umb_to_explicit_ats(umb: umbi.umb.ExplicitUmb) -> umbi.ats.Explicit
                 )
                 for applies_to in umb_annotation.applies_to or []:
                     values = umb.annotations[category][name][applies_to]
-                    entity_class = umbi.ats.EntityClass(applies_to)
+                    entity_class = EntityClass(applies_to)
                     ats_annotation.set_values_for(entity_class, values)
-                ats.annotations[category] = dict[str, umbi.ats.Annotation]()
+                ats.annotations[category] = dict[str, Annotation]()
                 ats.annotations[category][name] = ats_annotation
 
     # load valuations
     if umb.index.valuations is not None:
         assert umb.valuations is not None
-        ats.variable_valuations = umbi.ats.EntityClassValuations()
+        ats.variable_valuations = EntityClassValuations()
         for applies_to, valuation_description in umb.index.valuations.items():
             # ignore unique and num_strings
             # assume a single valuation class
@@ -88,8 +92,8 @@ def explicit_umb_to_explicit_ats(umb: umbi.umb.ExplicitUmb) -> umbi.ats.Explicit
             struct_type = valuation_description.classes[0]
 
             entity_to_valuation = umb.valuations[applies_to]
-            entity_class = umbi.ats.EntityClass(applies_to)
-            entity_valuations = umbi.ats.EntityValuations()
+            entity_class = EntityClass(applies_to)
+            entity_valuations = EntityValuations()
             for attribute in struct_type.attributes:
                 if attribute.lower is not None or attribute.upper is not None:
                     raise NotImplementedError("bounds on valuation variables not supported yet")
@@ -105,15 +109,15 @@ def explicit_umb_to_explicit_ats(umb: umbi.umb.ExplicitUmb) -> umbi.ats.Explicit
     if ts.observations_apply_to is not None:
         assert ts.num_observations > 0
         assert umb.entity_to_observation is not None
-        ats.observation_annotation = umbi.ats.ObservationAnnotation(num_observations=ts.num_observations)
-        entity_class = umbi.ats.EntityClass(ts.observations_apply_to)
+        ats.observation_annotation = ObservationAnnotation(num_observations=ts.num_observations)
+        entity_class = EntityClass(ts.observations_apply_to)
         ats.observation_annotation.set_values_for(entity_class, umb.entity_to_observation)
 
     ats.validate()
     return ats
 
 
-def explicit_ats_to_explicit_umb(ats: umbi.ats.ExplicitAts) -> umbi.umb.ExplicitUmb:
+def explicit_ats_to_explicit_umb(ats: ExplicitAts) -> umbi.umb.ExplicitUmb:
     ats.validate()
     umb = umbi.umb.ExplicitUmb()
 
@@ -262,7 +266,7 @@ def explicit_ats_to_explicit_umb(ats: umbi.ats.ExplicitAts) -> umbi.umb.Explicit
 # API
 
 
-def read(umbpath: str | pathlib.Path, strict: bool = False) -> umbi.ats.ExplicitAts:
+def read(umbpath: str | pathlib.Path, strict: bool = False) -> ExplicitAts:
     """Read ATS from a umbfile.
 
     :param umbpath: path to the umbfile
@@ -274,7 +278,7 @@ def read(umbpath: str | pathlib.Path, strict: bool = False) -> umbi.ats.Explicit
     return ats
 
 
-def write(ats: umbi.ats.ExplicitAts, umbpath: str | pathlib.Path) -> None:
+def write(ats: ExplicitAts, umbpath: str | pathlib.Path) -> None:
     """Write ATS to a umbfile.
 
     :param ats: ExplicitAts object to write

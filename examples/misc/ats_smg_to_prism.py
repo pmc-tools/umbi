@@ -8,7 +8,6 @@ import logging
 import pathlib
 
 import umbi
-import umbi.ats.examples
 
 log = logging.getLogger(__name__)
 
@@ -33,6 +32,7 @@ def ats_smg_to_prism(ats: umbi.ats.ExplicitAts, output_path: pathlib.Path) -> No
         f.write(f"global state: [0..{ats.num_states - 1}];\n\n")
 
         # player declarations
+        player_to_states = None
         if ats.num_players > 0:
             # group states by player
             player_to_states = {}
@@ -60,6 +60,7 @@ def ats_smg_to_prism(ats: umbi.ats.ExplicitAts, output_path: pathlib.Path) -> No
 
         # group states by player for module generation
         if ats.num_players > 0:
+            assert player_to_states is not None
             for player in sorted(player_to_states.keys()):
                 f.write(f"module player{player}\n")
 

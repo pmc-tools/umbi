@@ -6,8 +6,8 @@ import pytest
 
 from umbi.datatypes import NumericPrimitiveType
 from umbi.datatypes.numeric_primitive import (
-    numeric_primitive_type_of,
     numeric_primitive_promotion_type,
+    numeric_primitive_type_of,
     promote_numeric_primitive_to,
 )
 
