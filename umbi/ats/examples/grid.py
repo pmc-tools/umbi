@@ -1,18 +1,15 @@
-"""
-umbi demo: Create an ATS from a grid string.
-"""
-
-from __future__ import annotations
+"""umbi demo: Create an ExplicitAts from a grid string."""
 
 import logging
 from fractions import Fraction
 
-import umbi
+from ..explicit_ats import ExplicitAts, TimeType
+from ..variable_valuations import EntityClassValuations, EntityValuations
 
 logger = logging.getLogger(__name__)
 
 
-def grid_ats(grid: str) -> umbi.ats.ExplicitAts:
+def grid_ats(grid: str) -> ExplicitAts:
     """
     Create a simple ATS from a rectangular grid string.
 
@@ -32,8 +29,8 @@ def grid_ats(grid: str) -> umbi.ats.ExplicitAts:
         raise ValueError("The grid must be rectangular (all rows must have the same length).")
 
     # Create ATS
-    ats = umbi.ats.ExplicitAts()
-    ats.time = umbi.ats.TimeType.DISCRETE
+    ats = ExplicitAts()
+    ats.time = TimeType.DISCRETE
     ats.num_players = 1
 
     cell_to_state = {}
@@ -55,17 +52,16 @@ def grid_ats(grid: str) -> umbi.ats.ExplicitAts:
             elif c == "g":
                 goal_states.add(state)
 
-    ats.num_states = len(cell_to_state)
     ats.set_initial_states(list(initial_states))
 
     if ats.variable_valuations is None:
-        ats.variable_valuations = umbi.ats.EntityClassValuations()
+        ats.variable_valuations = EntityClassValuations()
     if not ats.variable_valuations.has_state_valuations:
-        ats.variable_valuations.set_state_valuations(umbi.ats.EntityValuations())
+        ats.variable_valuations.set_state_valuations(EntityValuations())
     state_valuations = ats.variable_valuations.state_valuations
     vx = state_valuations.add_variable("x")
     vy = state_valuations.add_variable("y")
-    for state in range(ats.num_states):
+    for state in ats.states:
         x, y = state_to_cell[state]
         state_valuations.set_entity_valuation(state, {vx: x, vy: y})
 
@@ -76,41 +72,28 @@ def grid_ats(grid: str) -> umbi.ats.ExplicitAts:
         "right": (1, 0),
     }
 
-    ats.state_to_choice = []
-    ats.choice_to_branches = []
-    ats.branch_to_target = []
-    ats.branch_to_probability = []
-    ats.choice_to_choice_action = []
     ats.choice_action_to_name = list(direction_dxdy.keys())
     ats.num_choice_actions = len(ats.choice_action_to_name)
 
     for (x, y), state in cell_to_state.items():
-        ats.state_to_choice.append(len(ats.choice_to_choice_action))
-
+        ats.add_state()
         for direction, (dx, dy) in direction_dxdy.items():
             target = (x + dx, y + dy)
-            ats.choice_to_choice_action.append(ats.choice_action_to_name.index(direction))
-            ats.choice_to_branches.append(len(ats.branch_to_target))
+            choice = ats.add_state_choice(state=state)
+            choice.action = ats.choice_action_to_name.index(direction)
 
             if target in cell_to_state:
                 target_state = cell_to_state[target]
-                ats.branch_to_target.extend([target_state, state])
-                ats.branch_to_probability.extend([Fraction(9, 10), Fraction(1, 10)])
+                choice.add_branch(target=target_state, prob=Fraction(9, 10))
+                choice.add_branch(target=state, prob=Fraction(1, 10))
             else:
-                ats.branch_to_target.append(state)
-                ats.branch_to_probability.append(1)
+                choice.add_branch(target=state)
 
-    ats.state_to_choice.append(len(ats.choice_to_choice_action))
-    ats.choice_to_branches.append(len(ats.branch_to_target))
-    ats.num_choices = len(ats.choice_to_choice_action)
-    ats.num_branches = len(ats.branch_to_target)
+    annotation = ats.add_ap_annotation(name="goal")
+    annotation.set_state_values([s in goal_states for s in range(ats.num_states)])
 
-    goal_ap = umbi.ats.AtomicPropositionAnnotation(name="goal")
-    goal_ap.set_state_values([s in goal_states for s in range(ats.num_states)])
-    ats.add_ap_annotation(goal_ap)
+    annotation = ats.add_reward_annotation(name="step_cost")
+    annotation.set_choice_values([1 for _ in range(ats.num_choices)])
 
-    step_cost_reward = umbi.ats.RewardAnnotation(name="step_cost")
-    step_cost_reward.set_choice_values([1 for _ in range(ats.num_choices)])
-    ats.add_reward_annotation(step_cost_reward)
-
+    ats.validate()
     return ats

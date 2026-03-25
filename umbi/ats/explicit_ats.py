@@ -1,9 +1,9 @@
 import logging
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field, fields
 from enum import Enum
 
-from umbi.datatypes import Numeric
+from umbi.datatypes import Interval, Numeric, NumericPrimitive
 
 from .annotations import (
     Annotation,
@@ -27,18 +27,108 @@ class TimeType(str, Enum):
 
 
 @dataclass
+class Branch:
+    """Branch of a choice."""
+
+    #: Target state of the branch.
+    target: int
+    #: Branch probability. If set, must be a stochastic numeric value.
+    prob: Numeric | None = None
+    #: Branch action.
+    action: int | None = None
+
+    def __post_init__(self):
+        self.validate()
+
+    def validate(self, num_states: int | None = None, num_branch_actions: int | None = None):
+        if self.target < 0:
+            raise ValueError(f"Invalid branch target {self.target}, must be >= 0.")
+        if num_states is not None and self.target >= num_states:
+            raise ValueError(f"Invalid branch target {self.target}, must be < num_states ({num_states}).")
+        if self.prob is not None:
+            if isinstance(self.prob, NumericPrimitive):
+                if self.prob < 0 or self.prob > 1:
+                    raise ValueError(f"Invalid branch probability {self.prob}, must be in [0, 1].")
+            else:  # isinstance(self.prob, Interval):
+                assert isinstance(self.prob, Interval)
+                if self.prob.left < 0 or self.prob.right > 1:
+                    raise ValueError(f"Invalid branch probability interval {self.prob}, must be in [0, 1].")
+        if self.action is not None:
+            if self.action < 0:
+                raise ValueError(f"Invalid branch action {self.action}, must be >= 0.")
+            if num_branch_actions is not None and self.action >= num_branch_actions:
+                raise ValueError(
+                    f"Invalid branch action {self.action}, must be < num_branch_actions ({num_branch_actions})."
+                )
+
+
+@dataclass
+class Choice:
+    """Choice of a state."""
+
+    #: Global choice index.
+    _index: int
+    #: Source state of the choice.
+    state: int
+    #: List of branches of the choice. Probabilities must sum to 1.
+    branches: list[Branch] = field(default_factory=list)
+    #: Choice action.
+    action: int | None = None
+
+    @property
+    def index(self) -> int:
+        """Get the global choice index."""
+        return self._index
+
+    @property
+    def num_branches(self) -> int:
+        """Get the number of branches."""
+        return len(self.branches)
+
+    def add_branch(self, target: int, prob: Numeric | None = None, action: int | None = None) -> Branch:
+        """Add a branch to the choice with the given target, probability, and action, and return it."""
+        branch = Branch(target=target, prob=prob, action=action)
+        self.branches.append(branch)
+        return branch
+
+    def validate(
+        self,
+        num_states: int | None = None,
+        num_choice_actions: int | None = None,
+        num_branch_actions: int | None = None,
+    ):
+        if len(self.branches) == 0:
+            raise ValueError("A choice must have at least one branch.")
+        for branch in self.branches:
+            branch.validate(num_states=num_states, num_branch_actions=num_branch_actions)
+            # TODO validate branch probabilities sum to 1
+        if self.action is not None:
+            if self.action < 0:
+                raise ValueError(f"Invalid choice action {self.action}, must be >= 0.")
+            if num_choice_actions is not None and self.action >= num_choice_actions:
+                raise ValueError(
+                    f"Invalid choice action {self.action}, must be < num_choice_actions ({num_choice_actions})."
+                )
+
+
+@dataclass
 class ExplicitAts:
     """
-    Explicit container for an annotated transition system (ATS). All the attributes can be freely manipulated.
-    Method validate() can be used to check for consistency.
+    Explicit container for an annotated transition system (ATS). Public attributes are managed by the user and must be
+    set appropriately; calling validate() checks for consistency.
     """
+
+    #: Number of states.
+    _num_states: int = 0
+    #: For every state, a list of choices.
+    _state_choices: list[list[Choice]] = field(default_factory=list)
+    #: Number of choices.
+    _num_choices: int = 0
 
     #: Information about the model.
     model_info: ModelInfo | None = None
     #: Type of time.
     time: TimeType = TimeType.DISCRETE
-    #: Number of states. Must be > 0.
-    num_states: int = 1
 
     #: Number of players.
     num_players: int = 0
@@ -49,40 +139,21 @@ class ExplicitAts:
 
     #: Number of initial states. Must be consistent with state_is_initial.
     num_initial_states: int = 0
-    #: State-to-whether-initial mapping.
-    state_is_initial: list[bool] = field(default_factory=lambda: [False])
+    #: For each state, whether it is an initial one.
+    state_is_initial: list[bool] = field(default_factory=list)
 
-    #: Number of choices.
-    num_choices: int = 0
-    #: CSR list of length num_states + 1. Must be set if num_choices > 0.
-    state_to_choice: list[int] | None = None
-
-    #: Number of branches.
-    num_branches: int = 0
-    #: CSR list of length num_choices + 1. Must be set if num_branches > 0.
-    choice_to_branches: list[int] | None = None
-
-    #: Branch-to-target-state mapping. Must be set if num_branches > 0.
-    branch_to_target: list[int] | None = None
-    #: Branch-to-probability mapping. Must be set if num_branches > 0. Can contain arbitrary Numeric values.
-    branch_to_probability: list[Numeric] | None = None
-
-    #: State-to-whether-markovian mapping. Must be set if time is TimeType.STOCHASTIC.
+    #: State-to-whether-markovian mapping. Must be set if time is TimeType.URGENT_STOCHASTIC.
     state_is_markovian: list[bool] | None = None
-    #: State-to-exit-rate mapping. Must be set if time is TimeType.STOCHASTIC. Can contain arbitrary Numeric values.
+    #: State-to-exit-rate mapping. Must be set if time is TimeType.STOCHASTIC or TimeType.URGENT_STOCHASTIC. Can contain arbitrary Numeric values.
     state_to_exit_rate: list[Numeric] | None = None
 
     #: Number of actions associated with choices.
     num_choice_actions: int = 0
-    #: Choice-to-choice-action mapping. Must be set if num_choice_actions > 0.
-    choice_to_choice_action: list[int] | None = None
     #: Choice-action-to-string mapping. Can only be set if num_choice_actions > 0.
     choice_action_to_name: list[str] | None = None
 
     #: Number of actions associated with branches.
     num_branch_actions: int = 0
-    #: Branch-to-branch-action mapping. Must be set if num_branch_actions > 0.
-    branch_to_branch_action: list[int] | None = None
     #: Branch-action-to-string mapping. Can only be set if num_branch_actions > 0.
     branch_action_to_name: list[str] | None = None
 
@@ -107,6 +178,34 @@ class ExplicitAts:
     # helper properties and methods
 
     @property
+    def num_states(self) -> int:
+        """Get the number of states."""
+        return self._num_states
+
+    @property
+    def states(self) -> Iterable[int]:
+        """Get the list of all states."""
+        return range(self._num_states)
+
+    def _check_state(self, state: int):
+        if state < 0 or state >= self._num_states:
+            raise ValueError(f"Invalid state {state}, must be >= 0 and < {self._num_states}.")
+
+    def add_state(self) -> int:
+        """Add a new state and return its index."""
+        new_state = self._num_states
+        self._num_states += 1
+        self._state_choices.append([])
+        return new_state
+
+    def remove_state(self, state: int):
+        """Remove the given state."""
+        self._check_state(state)
+        del self._state_choices[state]
+        self._num_states -= 1
+        # TODO check whether any branches point to the removed state
+
+    @property
     def initial_states(self) -> list[int]:
         """Get the list of the initial states."""
         return [i for i, is_initial in enumerate(self.state_is_initial) if is_initial]
@@ -115,13 +214,13 @@ class ExplicitAts:
         """Set the initial states."""
         self.state_is_initial = [False] * self.num_states
         for s in initial_states:
-            if s >= self.num_states:
-                raise ValueError(f"Invalid state {s}, must be < {self.num_states}.")
+            self._check_state(s)
             self.state_is_initial[s] = True
         self.num_initial_states = len([is_initial for is_initial in self.state_is_initial if is_initial])
 
     def get_player_of_state(self, state: int) -> int:
         """Get the player controlling the given state."""
+        self._check_state(state)
         if self.state_to_player is None:
             raise ValueError("state_to_player is not set")
         return self.state_to_player[state]
@@ -137,23 +236,73 @@ class ExplicitAts:
         """Set the markovian states."""
         self.state_is_markovian = [False] * self.num_states
         for s in markovian_states:
-            if s >= self.num_states:
-                raise ValueError(f"Invalid state {s}, must be < {self.num_states}.")
+            self._check_state(s)
             self.state_is_markovian[s] = True
 
-    def state_choice_range(self, state: int) -> Iterable[int]:
-        """Return the choice range of the given state."""
-        if self.state_to_choice is None:
-            raise ValueError("state_to_choice is not set")
-        assert state <= self.num_states
-        return range(self.state_to_choice[state], self.state_to_choice[state + 1])
+    ### Choices and branches. ###
 
-    def choice_branch_range(self, choice: int) -> Iterable[int]:
-        """Return the branch range of the given choice."""
-        if self.choice_to_branches is None:
-            raise ValueError("choice_to_branches is not set")
-        assert choice <= self.num_choices
-        return range(self.choice_to_branches[choice], self.choice_to_branches[choice + 1])
+    def _check_choice_index(self, choice_index: int):
+        if choice_index < 0 or choice_index >= self._num_choices:
+            raise ValueError(f"Invalid choice index {choice_index}, must be >= 0 and < {self._num_choices}.")
+
+    def add_state_choice(self, state: int) -> Choice:
+        """Add a choice to the given state with the given action and return it."""
+        self._check_state(state)
+        choice_index = self._num_choices
+        choice = Choice(_index=choice_index, state=state)
+        self._state_choices[state].append(choice)
+        self._num_choices += 1
+        return choice
+
+    def get_state_choices(self, state: int) -> Sequence[Choice]:
+        """Get the list of choices of the given state."""
+        self._check_state(state)
+        return self._state_choices[state]
+
+    def num_state_choices(self, state: int) -> int:
+        """Get the number of choices of the given state."""
+        self._check_state(state)
+        return len(self._state_choices[state])
+
+    def get_choice_by_index(self, choice_index: int) -> Choice:
+        """Get the choice with the given global index."""
+        self._check_choice_index(choice_index)
+        # TODO optimize
+        for choices in self._state_choices:
+            for choice in choices:
+                if choice.index == choice_index:
+                    return choice
+        raise ValueError(f"Choice with index {choice_index} not found.")
+
+    def remove_choice(self, choice: Choice):
+        """Remove the given choice."""
+        self._check_state(choice.state)
+        if choice not in self._state_choices[choice.state]:
+            raise ValueError("Choice not found in state_choices.")
+        self._state_choices[choice.state].remove(choice)
+        self._num_choices -= 1
+
+    @property
+    def choices(self) -> Iterable[Choice]:
+        """Get the list of all choices."""
+        for choices in self._state_choices:
+            yield from choices
+
+    @property
+    def num_choices(self) -> int:
+        """Get the number of choices."""
+        return self._num_choices
+
+    @property
+    def num_branches(self) -> int:
+        """Get the number of branches."""
+        return sum(choice.num_branches for choice in self.choices)
+
+    @property
+    def branches(self) -> Iterable[Branch]:
+        """Get the list of all branches."""
+        for choice in self.choices:
+            yield from choice.branches
 
     ### Rewards. ###
 
@@ -178,11 +327,13 @@ class ExplicitAts:
         """Check if a reward annotation with the given name exists."""
         return name in self.reward_annotations
 
-    def add_reward_annotation(self, annotation: RewardAnnotation):
+    def add_reward_annotation(self, name: str, **kwargs) -> RewardAnnotation:
         """Add a reward annotation."""
-        if self.has_reward_annotation(annotation.name):
-            raise ValueError(f"reward annotation with name {annotation.name} already exists")
-        self.reward_annotations[annotation.name] = annotation
+        if self.has_reward_annotation(name):
+            raise ValueError(f"reward annotation with name {name} already exists")
+        annotation = RewardAnnotation(name=name, **kwargs)
+        self.reward_annotations[name] = annotation
+        return annotation
 
     def get_reward_annotation(self, name: str) -> RewardAnnotation:
         """Get the reward annotation with the given name."""
@@ -213,11 +364,13 @@ class ExplicitAts:
         """Check if an atomic proposition annotation with the given name exists."""
         return name in self.ap_annotations
 
-    def add_ap_annotation(self, annotation: AtomicPropositionAnnotation):
+    def add_ap_annotation(self, name: str, **kwargs) -> AtomicPropositionAnnotation:
         """Add an atomic proposition annotation."""
-        if self.has_ap_annotation(annotation.name):
-            raise ValueError(f"atomic proposition annotation with name {annotation.name} already exists")
-        self.ap_annotations[annotation.name] = annotation
+        if self.has_ap_annotation(name):
+            raise ValueError(f"atomic proposition annotation with name {name} already exists")
+        annotation = AtomicPropositionAnnotation(name=name, **kwargs)
+        self.ap_annotations[name] = annotation
+        return annotation
 
     def get_ap_annotation(self, name: str) -> AtomicPropositionAnnotation:
         """Get the atomic proposition annotation with the given name."""
@@ -237,11 +390,24 @@ class ExplicitAts:
     def has_observations(self) -> bool:
         return self.num_observations > 0
 
+    def add_observation_annotation(self, num_observations: int) -> ObservationAnnotation:
+        if self.observation_annotation is not None:
+            raise ValueError("observation annotation already exists")
+        self.observation_annotation = ObservationAnnotation(num_observations=num_observations)
+        return self.observation_annotation
+
+    def get_observation_annotation(self) -> ObservationAnnotation:
+        if self.observation_annotation is None:
+            raise ValueError("observation annotation does not exist")
+        return self.observation_annotation
+
     ### Variable valuations. ###
 
     @property
     def has_variable_valuations(self) -> bool:
         return self.variable_valuations is not None
+
+    ### Extra methods. ###
 
     def validate(self):
         # TODO more checks
@@ -260,15 +426,13 @@ class ExplicitAts:
         if self.num_initial_states != len(self.initial_states):
             raise ValueError("expected num_initial_states == len(initial_states)")
 
-        if self.state_to_choice is not None:
-            if len(self.state_to_choice) != self.num_states + 1:
-                raise ValueError("expected len(state_to_choice) == num_states+1")
-        if self.choice_to_branches is not None:
-            if len(self.choice_to_branches) != self.num_choices + 1:
-                raise ValueError("expected len(choice_to_branches) == num_choices+1")
-        if self.branch_to_target is not None:
-            if len(self.branch_to_target) != self.num_branches:
-                raise ValueError("expected len(branch_to_target) == num_branches")
+        if self.choices is not None:
+            for choice in self.choices:
+                choice.validate(
+                    num_states=self.num_states,
+                    num_choice_actions=self.num_choice_actions,
+                    num_branch_actions=self.num_branch_actions,
+                )
 
         for reward_annotation in self.reward_annotations.values():
             reward_annotation.validate()
@@ -311,3 +475,92 @@ class ExplicitAts:
 
     def __eq__(self, other: object) -> bool:
         return self.equal(other)
+
+    def _check_order(self, new_order: list[int], num_entities: int):
+        if sorted(new_order) != list(range(num_entities)):
+            raise ValueError("new_order must be a permutation of the entity indices")
+
+    @property
+    def _annotations(self) -> Iterable[Annotation]:
+        if self.annotations is not None:
+            for _, name_annotation in self.annotations.items():
+                for _, annotation in name_annotation.items():
+                    yield annotation
+        if self.observation_annotation is not None:
+            yield self.observation_annotation
+
+    def _reorder_annotations(self, entity_class: EntityClass, new_order: list[int]):
+        for annotation in self._annotations:
+            annotation._reorder_entities(entity_class=entity_class, new_order=new_order)
+        if self.variable_valuations is not None:
+            self.variable_valuations._reorder_entities(entity_class=entity_class, new_order=new_order)
+
+    def _reorder_choices(self, new_order: list[int]):
+        """Reorder choices according to the given new order."""
+        self._check_order(new_order, self.num_choices)
+
+        # compute new branch order based on new choice order
+        choice_to_branch_indices = []
+        num_branches = 0
+        for choice in self.choices:
+            branch_indices = list(range(num_branches, num_branches + choice.num_branches))
+            choice_to_branch_indices.append(branch_indices)
+            num_branches += choice.num_branches
+        branch_new_order = []
+        for choice_index in new_order:
+            branch_new_order.extend(choice_to_branch_indices[choice_index])
+        self._reorder_annotations(entity_class=EntityClass.BRANCHES, new_order=branch_new_order)
+
+        # reorder choice-related attributes
+        for choice in self.choices:
+            choice._index = new_order[choice._index]
+        self._reorder_annotations(entity_class=EntityClass.CHOICES, new_order=new_order)
+
+    def reorder_states(self, new_order: list[int]):
+        """Reorder states according to the given new order."""
+        self._check_order(new_order, self.num_states)
+
+        # compute new choice order based on new state order
+        state_to_choice_indices = []
+        num_choices = 0
+        for state in self.states:
+            choice_indices = list(range(num_choices, num_choices + self.num_state_choices(state)))
+            state_to_choice_indices.append(choice_indices)
+            num_choices += self.num_state_choices(state)
+        choice_new_order = []
+        for state_index in new_order:
+            choice_new_order.extend(state_to_choice_indices[state_index])
+        self._reorder_choices(choice_new_order)
+
+        # reorder state-related attributes
+        self._state_choices = [self._state_choices[i] for i in new_order]
+        for choice in self.choices:
+            choice.state = new_order[choice.state]
+            for branch in choice.branches:
+                branch.target = new_order[branch.target]
+        self.state_is_initial = [self.state_is_initial[i] for i in new_order]
+        if self.state_to_player is not None:
+            self.state_to_player = [self.state_to_player[i] for i in new_order]
+        if self.state_is_markovian is not None:
+            self.state_is_markovian = [self.state_is_markovian[i] for i in new_order]
+        if self.state_to_exit_rate is not None:
+            self.state_to_exit_rate = [self.state_to_exit_rate[i] for i in new_order]
+
+        # reorder annotations with state values
+        self._reorder_annotations(entity_class=EntityClass.STATES, new_order=new_order)
+
+    def state_order_by_valuations(self) -> list[int]:
+        """Get a new state order based on sorting by variable valuations."""
+        if self.variable_valuations is None:
+            raise ValueError("variable_valuations is not set")
+        if not self.variable_valuations.has_state_valuations:
+            raise ValueError("variable_valuations does not have state valuations")
+        valuations = self.variable_valuations.state_valuations
+        new_order = sorted(range(self.num_states), key=lambda s: valuations.get_entity_valuation_tuple(s))
+        return new_order
+
+    def reorder_states_by_valuations(self):
+        """Reorder states based on sorting by variable valuations."""
+        new_order = self.state_order_by_valuations()
+        logger.debug(f"Reordering states by valuations with new order {new_order}")
+        self.reorder_states(new_order)

@@ -67,10 +67,10 @@ class TestSizedTypeValidation:
 
     def test_positive_size_required(self):
         """Test that size must be positive."""
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError):
             SizedType(NumericPrimitiveType.UINT, 0)
 
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError):
             SizedType(NumericPrimitiveType.UINT, -1)
 
     def test_string_must_be_64_bits(self):
@@ -147,3 +147,50 @@ class TestForTypeClassMethod:
         """Test default size for DOUBLE."""
         sized_type = SizedType.for_type(NumericPrimitiveType.DOUBLE)
         assert sized_type.size_bits == 64
+
+
+class TestSizedTypeNumericProperties:
+    """Test SizedType numeric classification properties."""
+
+    def test_is_numeric_for_numeric_types(self):
+        """Test is_numeric returns True for numeric types."""
+        assert SizedType(NumericPrimitiveType.INT, 32).is_numeric
+        assert SizedType(NumericPrimitiveType.UINT, 32).is_numeric
+        assert SizedType(NumericPrimitiveType.DOUBLE, 64).is_numeric
+        assert SizedType(NumericPrimitiveType.RATIONAL, 128).is_numeric
+
+    def test_is_numeric_for_primitive_types(self):
+        """Test is_numeric returns False for primitive types."""
+        assert not SizedType(PrimitiveType.BOOL, 1).is_numeric
+        assert not SizedType(PrimitiveType.STRING, 64).is_numeric
+
+    def test_is_discrete_for_discrete_types(self):
+        """Test is_discrete returns True for discrete numeric types."""
+        assert SizedType(NumericPrimitiveType.INT, 32).is_discrete
+        assert SizedType(NumericPrimitiveType.UINT, 32).is_discrete
+        assert SizedType(NumericPrimitiveType.INT, 64).is_discrete
+
+    def test_is_discrete_for_continuous_types(self):
+        """Test is_discrete returns False for continuous numeric types."""
+        assert not SizedType(NumericPrimitiveType.DOUBLE, 64).is_discrete
+        assert not SizedType(NumericPrimitiveType.RATIONAL, 128).is_discrete
+
+    def test_is_discrete_for_primitive_types(self):
+        """Test is_discrete returns False for primitive types."""
+        assert not SizedType(PrimitiveType.BOOL, 1).is_discrete
+        assert not SizedType(PrimitiveType.STRING, 64).is_discrete
+
+    def test_is_continuous_for_continuous_types(self):
+        """Test is_continuous returns True for continuous numeric types."""
+        assert SizedType(NumericPrimitiveType.DOUBLE, 64).is_continuous
+        assert SizedType(NumericPrimitiveType.RATIONAL, 128).is_continuous
+
+    def test_is_continuous_for_discrete_types(self):
+        """Test is_continuous returns False for discrete numeric types."""
+        assert not SizedType(NumericPrimitiveType.INT, 32).is_continuous
+        assert not SizedType(NumericPrimitiveType.UINT, 32).is_continuous
+
+    def test_is_continuous_for_primitive_types(self):
+        """Test is_continuous returns False for primitive types."""
+        assert not SizedType(PrimitiveType.BOOL, 1).is_continuous
+        assert not SizedType(PrimitiveType.STRING, 64).is_continuous

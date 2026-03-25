@@ -14,6 +14,16 @@ class NumericPrimitiveType(str, enum.Enum):
     DOUBLE = "double"
     RATIONAL = "rational"
 
+    @property
+    def is_discrete(self) -> bool:
+        """Check if the type is discrete."""
+        return self in {NumericPrimitiveType.INT, NumericPrimitiveType.UINT}
+
+    @property
+    def is_continuous(self) -> bool:
+        """Check if the type is continuous."""
+        return self in {NumericPrimitiveType.DOUBLE, NumericPrimitiveType.RATIONAL}
+
 
 #: Primitive numeric values (integers, floats, or rational numbers).
 NumericPrimitive: TypeAlias = int | float | Fraction

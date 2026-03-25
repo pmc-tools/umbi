@@ -121,19 +121,19 @@ class Annotation:
     def player_values(self) -> list[Scalar]:
         return self.get_values_for(EntityClass.PLAYERS)
 
-    def set_state_values(self, values: list[Scalar]):
+    def set_state_values(self, values: Sequence[Scalar]):
         self.set_values_for(EntityClass.STATES, values)
 
-    def set_choice_values(self, values: list[Scalar]):
+    def set_choice_values(self, values: Sequence[Scalar]):
         self.set_values_for(EntityClass.CHOICES, values)
 
-    def set_branch_values(self, values: list[Scalar]):
+    def set_branch_values(self, values: Sequence[Scalar]):
         self.set_values_for(EntityClass.BRANCHES, values)
 
-    def set_observation_values(self, values: list[Scalar]):
+    def set_observation_values(self, values: Sequence[Scalar]):
         self.set_values_for(EntityClass.OBSERVATIONS, values)
 
-    def set_player_values(self, values: list[Scalar]):
+    def set_player_values(self, values: Sequence[Scalar]):
         self.set_values_for(EntityClass.PLAYERS, values)
 
     def unset_state_values(self):
@@ -171,6 +171,18 @@ class Annotation:
     def validate(self):
         """Validate the annotation data."""
         return
+
+    def _reorder_entities(self, entity_class: EntityClass, new_order: list[int]) -> None:
+        """Reorder the values for the given entity class according to the new order.
+
+        :param entity_class: the entity class for which to reorder values
+        :param new_order: a list of indices representing the new order of values. Must be a permutation of the full list of entity indices.
+        """
+        if not self.has_values_for(entity_class):
+            return
+        values = self._entity_class_to_values[entity_class]
+        # we don't check the order
+        self._entity_class_to_values[entity_class] = [values[i] for i in new_order]
 
 
 class RewardAnnotation(Annotation):

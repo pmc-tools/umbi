@@ -18,7 +18,8 @@ def explicit_umb_to_explicit_ats(umb: umbi.umb.ExplicitUmb) -> ExplicitAts:
     ats = ExplicitAts()
 
     ## index
-    # skip format_version, format_revision and file_data
+    # strip format_version, format_revision and file_data
+    # load umb.index.model_data
     md = umb.index.model_data
     if md is not None:
         ats.model_info = ModelInfo(
@@ -30,33 +31,51 @@ def explicit_umb_to_explicit_ats(umb: umbi.umb.ExplicitUmb) -> ExplicitAts:
             doi=md.doi,
             url=md.url,
         )
+
     # load index.transition_system
     ts = umb.index.transition_system
     ats.time = TimeType(ts.time)
     ats.num_players = ts.num_players
-    ats.num_states = ts.num_states
     ats.num_initial_states = ts.num_initial_states
-    ats.num_choices = ts.num_choices
     ats.num_choice_actions = ts.num_choice_actions
-    ats.num_branches = ts.num_branches
     ats.num_branch_actions = ts.num_branch_actions
     ats.player_to_name = ts.player_to_name
 
     ## values
     ats.state_is_initial = umb.state_is_initial
-    ats.state_to_choice = umb.state_to_choices
     ats.state_to_player = umb.state_to_player
 
     ats.state_is_markovian = umb.state_is_markovian
     ats.state_to_exit_rate = umb.state_to_exit_rate
 
-    ats.choice_to_branches = umb.choice_to_branches
-    ats.branch_to_target = umb.branch_to_target
-    ats.branch_to_probability = umb.branch_to_probability
+    for state_index in range(ts.num_states):
+        state = ats.add_state()
+        assert state == state_index
 
-    ats.choice_to_choice_action = umb.choice_to_choice_action
+    state_to_choices = (
+        umb.state_to_choices if umb.state_to_choices is not None else [s for s in range(ats.num_states + 1)]
+    )
+    if ts.num_choices > 0:
+        for state in ats.states:
+            for choice_idx in range(state_to_choices[state], state_to_choices[state + 1]):
+                choice = ats.add_state_choice(state=state)
+                if ts.num_branches > 0:
+                    assert umb.choice_to_branches is not None, "num_branches > 0 but choice_to_branches is None"
+                    for branch_idx in range(umb.choice_to_branches[choice_idx], umb.choice_to_branches[choice_idx + 1]):
+                        assert umb.branch_to_target is not None, "num_branches > 0 but branch_to_target is None"
+                        target = umb.branch_to_target[branch_idx]
+                        prob = umb.branch_to_probability[branch_idx] if umb.branch_to_probability is not None else None
+                        branch_action = (
+                            umb.branch_to_branch_action[branch_idx] if umb.branch_to_branch_action is not None else None
+                        )
+                        choice.add_branch(target=target, prob=prob, action=branch_action)
+                if ts.num_choice_actions > 0:
+                    assert umb.choice_to_choice_action is not None, (
+                        "num_choice_actions > 0 but choice_to_choice_action is None"
+                    )
+                    choice.action = umb.choice_to_choice_action[choice_idx]
+
     ats.choice_action_to_name = umb.choice_action_to_string
-    ats.branch_to_branch_action = umb.branch_to_branch_action
     ats.branch_action_to_name = umb.branch_action_to_string
 
     # load annotations
@@ -167,7 +186,6 @@ def explicit_ats_to_explicit_umb(ats: ExplicitAts) -> umbi.umb.ExplicitUmb:
     # warning: this does not copy the values, but directly uses the lists from ats.
     # this is fine as long as we don't modify them
     umb.state_is_initial = ats.state_is_initial
-    umb.state_to_choices = ats.state_to_choice
     umb.state_to_player = ats.state_to_player
 
     umb.state_is_markovian = ats.state_is_markovian
@@ -178,19 +196,40 @@ def explicit_ats_to_explicit_umb(ats: ExplicitAts) -> umbi.umb.ExplicitUmb:
         umb.index.transition_system.exit_rate_type = SizedType.for_type(target_type)
         umb.state_to_exit_rate = vector  # type: ignore
 
-    umb.choice_to_branches = ats.choice_to_branches
-    umb.branch_to_target = ats.branch_to_target
+    umb.state_to_choices = []
+    num_choices = 0
+    for state in ats.states:
+        umb.state_to_choices.append(num_choices)
+        num_choices += ats.num_state_choices(state)
+    umb.state_to_choices.append(num_choices)
 
-    if ats.branch_to_probability is not None:
-        # promote
-        target_type, vector = umbi.datatypes.promote_scalars(ats.branch_to_probability)
-        assert isinstance(target_type, umbi.datatypes.NumericType), "branch probabilities must be numeric"
-        umb.index.transition_system.branch_probability_type = SizedType.for_type(target_type)
-        umb.branch_to_probability = vector  # type: ignore
+    if ats.num_choices > 0:
+        if ats.num_choice_actions > 0:
+            umb.choice_to_choice_action = [choice.action for choice in ats.choices]  # type: ignore
 
-    umb.choice_to_choice_action = ats.choice_to_choice_action
+        branches = []
+        umb.choice_to_branches = []
+        for choice in ats.choices:
+            umb.choice_to_branches.append(len(branches))
+            branches.extend(choice.branches)
+        umb.choice_to_branches.append(len(branches))
+        if len(branches) > 0:
+            umb.branch_to_target = [branch.target for branch in branches]
+            if any(branch.prob is not None for branch in branches):
+                # has branch probabilities
+                branch_to_probability = [branch.prob if branch.prob is not None else 1 for branch in branches]
+                # promote
+                target_type, vector = umbi.datatypes.promote_scalars(branch_to_probability)
+                # assert isinstance(target_type, umbi.datatypes.NumericType), "branch probabilities must be numeric"
+                umb.index.transition_system.branch_probability_type = SizedType.for_type(target_type)
+                umb.branch_to_probability = vector  # type: ignore
+            if ats.num_branch_actions > 0:
+                branch_actions = [branch.action for branch in branches]
+                if any(action is None for action in branch_actions):
+                    raise ValueError("if num_branch_actions > 0, all branches must have an action")
+                umb.branch_to_branch_action = branch_actions  # type: ignore
+
     umb.choice_action_to_string = ats.choice_action_to_name
-    umb.branch_to_branch_action = ats.branch_to_branch_action
     umb.branch_action_to_string = ats.branch_action_to_name
 
     # add annotations

@@ -52,6 +52,36 @@ class TestNumericPrimitiveTypeOf:
         assert numeric_primitive_type_of(True) == NumericPrimitiveType.INT
 
 
+class TestNumericPrimitiveTypeClassification:
+    """Test numeric type classification properties."""
+
+    def test_is_discrete_for_int(self):
+        """Test that INT is discrete."""
+        assert NumericPrimitiveType.INT.is_discrete
+
+    def test_is_discrete_for_uint(self):
+        """Test that UINT is discrete."""
+        assert NumericPrimitiveType.UINT.is_discrete
+
+    def test_is_discrete_for_continuous_types(self):
+        """Test that DOUBLE and RATIONAL are not discrete."""
+        assert not NumericPrimitiveType.DOUBLE.is_discrete
+        assert not NumericPrimitiveType.RATIONAL.is_discrete
+
+    def test_is_continuous_for_double(self):
+        """Test that DOUBLE is continuous."""
+        assert NumericPrimitiveType.DOUBLE.is_continuous
+
+    def test_is_continuous_for_rational(self):
+        """Test that RATIONAL is continuous."""
+        assert NumericPrimitiveType.RATIONAL.is_continuous
+
+    def test_is_continuous_for_discrete_types(self):
+        """Test that INT and UINT are not continuous."""
+        assert not NumericPrimitiveType.INT.is_continuous
+        assert not NumericPrimitiveType.UINT.is_continuous
+
+
 class TestNumericPrimitivePromotionType:
     """Test numeric_primitive_promotion_type function."""
 

@@ -1,6 +1,4 @@
-"""
-File data schemas and classes.
-"""
+"""File data schemas and classes."""
 
 import time
 from dataclasses import dataclass
@@ -32,11 +30,18 @@ class FileDataSchema(JsonSchema):
 
 @dataclass
 class FileData(JsonSchemaResult):
-    """File data class."""
+    """File data class.
 
+    Information about how this file was created (for reproducibility purposes).
+    """
+
+    #: the tool used to create this model (strongly encouraged)
     tool: str | None = None
+    #: the tool's version
     tool_version: str | None = None
+    #: export date (Unix timestamp)
     creation_date: int | None = None
+    #: the tool parameters (e.g. string or list of command-line arguments) used
     parameters: umbi.datatypes.JsonLike | None = None
 
     @classmethod
@@ -44,11 +49,17 @@ class FileData(JsonSchemaResult):
         return FileDataSchema
 
 
+def unix_timestamp() -> int:
+    """Get the current Unix timestamp."""
+    return int(time.time())
+
+
 def umbi_file_data() -> FileData:
     """Generate file data for use in umbfiles created by umbi."""
     return FileData(
         tool=umbi.version.__toolname__,
         tool_version=umbi.version.__version__,
-        creation_date=int(time.time()),
+        creation_date=unix_timestamp(),
+        # TODO include parameters
         # parameters=parameters,
     )

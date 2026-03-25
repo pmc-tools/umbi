@@ -16,9 +16,15 @@ from .ats_to_umb import (
     write,
 )
 from .entity_class import EntityClass
-from .explicit_ats import ExplicitAts, TimeType
+from .explicit_ats import Branch, Choice, ExplicitAts, TimeType
 from .model_info import ModelInfo
-from .variable_valuations import EntityClassValuations, EntityValuation, EntityValuations, Variable, VariableValuations
+from .variable_valuations import (
+    EntityClassValuations,
+    EntityValuation,
+    EntityValuations,
+    EntityVariableValuations,
+    Variable,
+)
 
 __all__ = [
     "examples",
@@ -30,11 +36,13 @@ __all__ = [
     # model_info
     "ModelInfo",
     # explicit_ats
+    "Branch",
+    "Choice",
     "TimeType",
     "ExplicitAts",
     # variable_valuations
+    "EntityVariableValuations",
     "Variable",
-    "VariableValuations",
     "EntityValuation",
     "EntityValuations",
     "EntityClassValuations",

@@ -9,6 +9,7 @@ from umbi.datatypes import (
     IntervalType,
     NumericPrimitive,
     NumericPrimitiveType,
+    NumericType,
     Primitive,
     PrimitiveType,
     Scalar,
@@ -38,7 +39,8 @@ class SizedType:
         self.validate()
 
     def validate(self):
-        assert self.size_bits > 0, "size must be positive"
+        if self.size_bits <= 0:
+            raise ValueError("size must be positive")
         validate_scalar_type_size(self.type, self.size_bits)
 
     @property
@@ -48,6 +50,18 @@ class SizedType:
     @property
     def size_bytes(self) -> int:
         return (self.size_bits + 7) // 8  # ceiling division
+
+    @property
+    def is_numeric(self) -> bool:
+        return isinstance(self.type, NumericType)
+
+    @property
+    def is_discrete(self) -> bool:
+        return self.is_numeric and self.type.is_discrete  # type: ignore[union-attr]
+
+    @property
+    def is_continuous(self) -> bool:
+        return self.is_numeric and self.type.is_continuous  # type: ignore[union-attr]
 
 
 # Default bitsizes for types

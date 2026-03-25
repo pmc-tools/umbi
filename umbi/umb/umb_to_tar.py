@@ -114,11 +114,10 @@ class UmbDecoder(umbi.tar.TarCoder):
                 else:
                     umb.state_is_markovian = [True] * ts.num_states
 
-        if ts.time == "stochastic" and ts.exit_rate_type is not None:
-            if self.has_file(UmbFile.STATE_TO_EXIT_RATE.value):
-                umb.state_to_exit_rate = self.read_vector(
-                    UmbFile.STATE_TO_EXIT_RATE.value, ts.exit_rate_type, optional=False
-                )
+        if ts.exit_rate_type is not None:
+            umb.state_to_exit_rate = self.read_vector(
+                UmbFile.STATE_TO_EXIT_RATE.value, ts.exit_rate_type, optional=True
+            )
 
     def read_action_files(self, umb: ExplicitUmb, applies_to: str, num_items: int):
         """Read action files for a specific action type (choices or branches).

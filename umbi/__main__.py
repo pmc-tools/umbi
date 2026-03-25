@@ -3,6 +3,7 @@ import logging
 import click
 
 import umbi
+import umbi.umb
 
 logger = logging.getLogger(__name__)
 
@@ -36,9 +37,9 @@ def main(log_level, import_umb, import_ats, export):
             raise ValueError("--export specified, but nothing to export")
         if umb is not None and ats is not None:
             raise ValueError("cannot specify both --import-umb and --import-ats when using --export")
-        if import_umb is not None:
+        if umb is not None:
             umbi.umb.write(umb, export)
-        if import_ats is not None:
+        if ats is not None:
             umbi.ats.write(ats, export)
 
 

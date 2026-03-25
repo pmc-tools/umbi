@@ -1,107 +1,76 @@
-"""
-umbi demo: A random walk ATS.
-"""
-
-from __future__ import annotations
+"""umbi demo: A random walk ATS."""
 
 import logging
 from fractions import Fraction
 
-import umbi
+from ..explicit_ats import ExplicitAts, TimeType
 
 logger = logging.getLogger(__name__)
 
 
-def random_walk_ats(num_states: int) -> umbi.ats.ExplicitAts:
+def random_walk_ats(num_states: int) -> ExplicitAts:
     # create ATS
-    ats = umbi.ats.ExplicitAts()
+    ats = ExplicitAts()
 
     # basic parameters
-    ats.time = umbi.ats.TimeType.DISCRETE
+    ats.time = TimeType.DISCRETE
     ats.num_players = 0
-    ats.num_states = num_states
     ats.num_initial_states = 1
     ats.set_initial_states([num_states // 2])  # start in the middle state
 
     # two actions: left (0) and right (1), each with 0.9 success prob
     ats.num_choice_actions = 2
     ats.choice_action_to_name = ["left", "right"]
-    ats.num_choices = 2 * ats.num_states  # each state has 2 choices (left and right)
-    ats.num_branches = 2 * ats.num_choices  # each choice has 2 branches (succeed or fail)
 
     # build structure
-    ats.state_to_choice = []
-    ats.choice_to_choice_action = []
-    ats.choice_to_branches = []
-    ats.branch_to_target = []
-    ats.branch_to_probability = []
-
-    for state in range(ats.num_states):
-        ats.state_to_choice.append(len(ats.choice_to_choice_action))
+    for state in range(num_states):
+        ats.add_state()
 
         # left action
-        ats.choice_to_choice_action.append(0)
-        ats.choice_to_branches.append(len(ats.branch_to_target))
+        choice = ats.add_state_choice(state=state)
         left = max(0, state - 1)
-        ats.branch_to_target.extend([left, state])
-        ats.branch_to_probability.extend([Fraction(9, 10), Fraction(1, 10)])
+        choice.add_branch(target=left, prob=Fraction(9, 10))
+        choice.add_branch(target=state, prob=Fraction(1, 10))
 
         # right action
-        ats.choice_to_choice_action.append(1)
-        ats.choice_to_branches.append(len(ats.branch_to_target))
-        right = min(ats.num_states - 1, state + 1)
-        ats.branch_to_target.extend([right, state])
-        ats.branch_to_probability.extend([Fraction(9, 10), Fraction(1, 10)])
-
-    ats.state_to_choice.append(len(ats.choice_to_choice_action))
-    ats.choice_to_branches.append(len(ats.branch_to_target))
+        choice = ats.add_state_choice(state=state)
+        right = min(num_states - 1, state + 1)
+        choice.add_branch(target=right, prob=Fraction(9, 10))
+        choice.add_branch(target=state, prob=Fraction(1, 10))
 
     ats.state_is_markovian = [True] * ats.num_states
-    ats.state_to_exit_rate = [1] * ats.num_states
+    ats.state_to_exit_rate = [1] * ats.num_states  # type: ignore[assignment]
 
     # example: APs
-    ats.add_ap_annotation(
-        umbi.ats.AtomicPropositionAnnotation(
-            name="is_terminal",
-            alias="Terminal State",
-            description="Indicates whether the state is terminal.",
-        )
+    annotation = ats.add_ap_annotation(
+        name="is_terminal", alias="Terminal State", description="Indicates whether the state is terminal."
     )
-    ats.get_ap_annotation("is_terminal").set_state_values(
-        [s == 0 or s == ats.num_states - 1 for s in range(ats.num_states)]
-    )
+    annotation.set_state_values([s == 0 or s == ats.num_states - 1 for s in ats.states])
 
     # example: rewards
-    ats.add_reward_annotation(
-        umbi.ats.RewardAnnotation(
-            name="steps",
-            alias="step cost",
-            description="Cost incurred at each step.",
-        )
-    )
-    ats.get_reward_annotation("steps").set_state_values([-1] * ats.num_states)
+    annotation = ats.add_reward_annotation(name="steps", alias="step cost", description="Cost incurred at each step.")
+    annotation.set_state_values([-1] * ats.num_states)
 
     # wall hit penalty
     choice_penalty = [0] * ats.num_choices
-    for choice in ats.state_choice_range(0):
-        action = ats.choice_to_choice_action[choice]
-        if ats.choice_action_to_name[action] == "left":  # left action in first state
-            choice_penalty[choice] = -10
-    for choice in ats.state_choice_range(ats.num_states - 1):
-        action = ats.choice_to_choice_action[choice]
-        if ats.choice_action_to_name[action] == "right":  # right action in last state
-            choice_penalty[choice] = -10
-    ats.add_reward_annotation(
-        umbi.ats.RewardAnnotation(
-            name="wall_hit_penalty",
-            alias="wall hit penalty",
-            description="Penalty incurred when hitting a wall.",
-        )
+    for choice in ats.get_state_choices(0):
+        assert choice.action is not None
+        if ats.choice_action_to_name[choice.action] == "left":  # left action in first state
+            choice_penalty[choice.index] = -10
+    for choice in ats.get_state_choices(ats.num_states - 1):
+        assert choice.action is not None
+        if ats.choice_action_to_name[choice.action] == "right":  # right action in last state
+            choice_penalty[choice.index] = -10
+    annotation = ats.add_reward_annotation(
+        name="wall_hit_penalty",
+        alias="wall hit penalty",
+        description="Penalty incurred when hitting a wall.",
     )
-    ats.get_reward_annotation("wall_hit_penalty").set_choice_values(choice_penalty)
+    annotation.set_choice_values(choice_penalty)
 
     # observations: 3 observations, based on state mod 3
-    ats.observation_annotation = umbi.ats.ObservationAnnotation(num_observations=3)
-    ats.observation_annotation.set_state_values([s % 3 for s in range(ats.num_states)])
+    annotation = ats.add_observation_annotation(num_observations=3)
+    annotation.set_state_values([s % 3 for s in ats.states])
 
+    ats.validate()
     return ats

@@ -78,6 +78,44 @@ class TestInterval:
         assert interval.left == 5
         assert interval.right == 5
 
+
+class TestIntervalTypeClassification:
+    """Test IntervalType classification properties."""
+
+    def test_is_discrete_for_int_interval(self):
+        """Test that int-interval is discrete."""
+        it = IntervalType(NumericPrimitiveType.INT)
+        assert it.is_discrete
+
+    def test_is_discrete_for_uint_interval(self):
+        """Test that uint-interval is discrete."""
+        it = IntervalType(NumericPrimitiveType.UINT)
+        assert it.is_discrete
+
+    def test_is_discrete_for_continuous_intervals(self):
+        """Test that double-interval and rational-interval are not discrete."""
+        double_it = IntervalType(NumericPrimitiveType.DOUBLE)
+        rational_it = IntervalType(NumericPrimitiveType.RATIONAL)
+        assert not double_it.is_discrete
+        assert not rational_it.is_discrete
+
+    def test_is_continuous_for_double_interval(self):
+        """Test that double-interval is continuous."""
+        it = IntervalType(NumericPrimitiveType.DOUBLE)
+        assert it.is_continuous
+
+    def test_is_continuous_for_rational_interval(self):
+        """Test that rational-interval is continuous."""
+        it = IntervalType(NumericPrimitiveType.RATIONAL)
+        assert it.is_continuous
+
+    def test_is_continuous_for_discrete_intervals(self):
+        """Test that int-interval and uint-interval are not continuous."""
+        int_it = IntervalType(NumericPrimitiveType.INT)
+        uint_it = IntervalType(NumericPrimitiveType.UINT)
+        assert not int_it.is_continuous
+        assert not uint_it.is_continuous
+
     def test_interval_str_repr(self):
         """Test Interval string representation."""
         interval = Interval(1, 5)

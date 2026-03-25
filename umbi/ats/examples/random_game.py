@@ -1,16 +1,13 @@
-#!/usr/bin/env python3
 """
-umbi demo: A random stochastic game generator based on Azeem et al. "Optimistic and Topological Value Iteration for
-Simple Stochastic Games".
+umbi demo: A random stochastic game generator based on
+Azeem et al. "Optimistic and Topological Value Iteration for Simple Stochastic Games".
 """
-
-from __future__ import annotations
 
 import logging
 import random
 import time
 
-import umbi
+from ..explicit_ats import ExplicitAts, TimeType
 
 logger = logging.getLogger(__name__)
 
@@ -176,7 +173,7 @@ def random_transition_function(
     return delta, actions_at_state, all_actions
 
 
-def random_game_ats(num_states: int, seed: int | None = None) -> umbi.ats.ExplicitAts:
+def random_game_ats(num_states: int, seed: int | None = None) -> ExplicitAts:
     """
     Generate a random stochastic game connected from initial state.
 
@@ -187,9 +184,8 @@ def random_game_ats(num_states: int, seed: int | None = None) -> umbi.ats.Explic
     delta, actions_at_state, all_actions = random_transition_function(num_states, seed)
 
     # create ATS
-    ats = umbi.ats.ExplicitAts(
-        time=umbi.ats.TimeType.STOCHASTIC,
-        num_states=num_states,
+    ats = ExplicitAts(
+        time=TimeType.STOCHASTIC,
         num_players=2,
     )
 
@@ -207,40 +203,25 @@ def random_game_ats(num_states: int, seed: int | None = None) -> umbi.ats.Explic
     ats.num_choice_actions = len(all_actions)
     ats.choice_action_to_name = all_actions
 
-    # count choices and branches
-    ats.num_choices = sum(len(actions) for actions in actions_at_state.values())
-    ats.num_branches = sum(
-        len(delta.get(s, {}).get(action, [])) for s in range(num_states) for action in actions_at_state[s]
-    )
-
     # build CSR structures
     logger.info("building CSR structures ...")
     build_start = time.time()
-    ats.state_to_choice = []
-    ats.choice_to_choice_action = []
-    ats.choice_to_branches = []
-    ats.branch_to_target = []
-    ats.branch_to_probability = []
 
     for s in range(num_states):
-        ats.state_to_choice.append(len(ats.choice_to_choice_action))
-
+        state = ats.add_state()
         for action in sorted(actions_at_state[s]):
-            ats.choice_to_choice_action.append(action)
-            ats.choice_to_branches.append(len(ats.branch_to_target))
+            choice = ats.add_state_choice(state=state)
+            choice.action = action
 
             # get all branches for this (s, action) pair
             branches = delta[s][action]
             branches.sort()  # sort by target state
 
             for target, prob in branches:
-                ats.branch_to_target.append(target)
-                ats.branch_to_probability.append(prob)
-
-    ats.state_to_choice.append(len(ats.choice_to_choice_action))
-    ats.choice_to_branches.append(len(ats.branch_to_target))
+                choice.add_branch(target=target, prob=prob)
 
     build_time = time.time() - build_start
+    ats.validate()
     logger.info(f"CSR building completed in {build_time:.3f}s")
     logger.info(f"generated random game: {num_states} states, {ats.num_choices} choices, {ats.num_branches} branches")
     logger.info(f"player0 states: {sum(is_player0_state)}, player1 states: {num_states - sum(is_player0_state)}")

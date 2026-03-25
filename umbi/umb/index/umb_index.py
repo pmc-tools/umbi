@@ -36,12 +36,14 @@ class UmbIndexSchema(JsonSchema):
 
 @dataclass
 class UmbIndex(JsonSchemaResult):
+    #: major version of format, change breaks compatibility
     format_version: int = 0
+    #: minor version of format, nothing that breaks compatibility (additions and such)
     format_revision: int = 0
     file_data: FileData | None = field(default=None, compare=False)  # exclude from equality checks
     model_data: ModelData | None = None
     transition_system: TransitionSystem = field(default_factory=TransitionSystem)
-    # TODO validate that reward annotations have continuous numeric type
+    # TODO validate that reward annotations have continuous numeric type, applied to ?
     # TODO validate that ap annotations have boolean type, applied to states
     annotations: dict[str, dict[str, AnnotationDescription]] | None = None
     valuations: dict[str, ValuationDescription] | None = None

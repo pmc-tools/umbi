@@ -32,6 +32,16 @@ class IntervalType:
         base_type = NumericPrimitiveType(base_type_string)
         return cls(base_type)
 
+    @property
+    def is_discrete(self) -> bool:
+        """Check if the interval type is discrete."""
+        return self.base_type.is_discrete
+
+    @property
+    def is_continuous(self) -> bool:
+        """Check if the interval type is continuous."""
+        return self.base_type.is_continuous
+
 
 @dataclass(frozen=False)
 class Interval:

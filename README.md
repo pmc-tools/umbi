@@ -3,7 +3,6 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue)](https://www.python.org/)
 [![License MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/umbi)](https://pypi.org/project/umbi/)
-[![Latest Tag](https://img.shields.io/github/tag/pmc-tools/umbi.svg)](https://github.com/pmc-tools/umbi/tags)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/pmc-tools/umbi/test-build.yml)](https://github.com/pmc-tools/umbi/actions)
 
 Library for input/output of annotated transition systems (ATSs) in a *unified Markov binary (UMB)* format. See the [format specification](https://github.com/pmc-tools/umb/) for details.

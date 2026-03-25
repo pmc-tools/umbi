@@ -11,9 +11,12 @@ from .index.umb_index import UmbIndex
 class ExplicitUmb:
     """Explicit representation of a umbfile using Python collections."""
 
+    #: UMB index file
     index: UmbIndex = field(default_factory=UmbIndex)
 
+    #: for each state, whether it is an initial state
     state_is_initial: list[bool] = field(default_factory=list)
+    #: for each state, the choices available
     state_to_choices: list[int] | None = None
     state_to_player: list[int] | None = None
 
