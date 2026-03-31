@@ -1,11 +1,12 @@
 """ATS model examples."""
 
-from .grid import grid_ats
-from .random_game import random_game_ats
-from .random_walk import random_walk_ats
+from .grid import grid, random_grid_string
+from .random_game import random_game
+from .random_walk import random_walk
 
 __all__ = [
-    "grid_ats",
-    "random_game_ats",
-    "random_walk_ats",
+    "random_grid_string",
+    "grid",
+    "random_game",
+    "random_walk",
 ]

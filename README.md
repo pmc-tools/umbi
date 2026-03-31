@@ -15,16 +15,16 @@ pip install umbi
 
 ## Quick start
 
-A short example where we read a umbfile into an [`ExplicitAts`](umbi/ats/explicit_ats.py) object, modify initial states, and write it back:
+A short example where we read a umbfile into an [`SimpleAts`](umbi/ats/explicit_ats.py) object, modify initial states, and write it back:
 
 ```python
 import umbi
 ats = umbi.ats.read("in.umb")
-ats.set_initial_states([ats.num_states - 1])
+ats.initial_states = [ats.num_states - 1]
 umbi.ats.write(ats, "out.umb")
 ```
 
-More examples can be found in the [./examples](./examples) folder.
+More examples can be found in the [examples](./examples) folder.
 
 ## API
 
@@ -34,7 +34,7 @@ More examples can be found in the [./examples](./examples) folder.
 
 **[`ExplicitUmb`](umbi/umb/explicit_umb.py)** - in-memory representation of a typical umbfile. Attributes are standard Python objects (lists, dicts, dataclasses) providing a deserialized view of the file contents.
 
-**[`ExplicitAts`](umbi/ats/explicit_ats.py)** - format-agnostic abstraction for annotated transition systems (states, transitions, annotations). Recommended for most use cases: easiest to use programmatically and remains stable across UMB format changes.
+**[`SimpleAts`](umbi/ats/simple_ats.py)** - format-agnostic abstraction for annotated transition systems (states, transitions, annotations, etc.). Recommended for most use cases: easiest to use programmatically and remains stable across UMB format changes. See [umbi.ats.examples](./umbi/ats/examples/) for usage examples.
 
 ## CLI
 
@@ -42,7 +42,7 @@ More examples can be found in the [./examples](./examples) folder.
 
 **Options:**
 - `--import-umb <path>` - import umbfile as `ExplicitUmb`
-- `--import-ats <path>` - import umbfile as `ExplicitAts`
+- `--import-ats <path>` - import umbfile as `SimpleAts`
 - `--export <path>` - export to umbfile (requires `--import-umb` or `--import-ats`)
 - `--log-level <LEVEL>` - set logging level: `DEBUG`, `INFO` (default), `WARNING`, `ERROR`, `CRITICAL`
 

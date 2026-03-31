@@ -1,11 +1,17 @@
-from collections.abc import Iterable, KeysView
+import logging
+from collections.abc import Iterable, KeysView, Sequence
 from dataclasses import dataclass, field
 from typing import TypeAlias
 
 from umbi.datatypes import Scalar, ScalarType, scalar_promotion_type_of
 
 from .domain import Domain
-from .entity_class import EntityClass
+from .entity_space import EntityClass
+
+logger = logging.getLogger(__name__)
+
+from .entity_space import EntityMapping, EntitySpace, MappingManager
+from .entity_space_mixins import HasCommonEntitySpaces
 
 
 @dataclass
@@ -89,22 +95,27 @@ class Variable:
 class EntityVariableValuations:
     """Mapping from entity to a given variable valuations."""
 
-    # the variable
-    _variable: Variable
+    #: variable
+    variable: Variable
+    #: entity class to which the variable valuations belong
+    entity_space: EntitySpace
     # for each entity, the valuation of the variable
-    _entity_to_value: list[Scalar | None] = field(default_factory=list)
+    _entity_to_value_manager: MappingManager[Scalar | None] = field(init=False)
+
+    def __post_init__(self):
+        self._entity_to_value_manager = MappingManager[Scalar | None](
+            name=f"{self.entity_space.entity_name}_valuations[{self.variable.name}]",
+            domain=self.entity_space,
+        )
+        self.entity_space._subscribe(self, lambda *args: self._entity_to_value_manager.auto_manage())
 
     @property
-    def variable(self) -> Variable:
-        return self._variable
+    def values(self) -> EntityMapping[Scalar | None]:
+        return self._entity_to_value_manager.mapping
 
-    @property
-    def values(self) -> list[Scalar | None]:
-        return self._entity_to_value
-
-    @property
-    def num_values(self) -> int:
-        return len(self._entity_to_value)
+    @values.setter
+    def values(self, values: Sequence[Scalar | None] | None) -> None:
+        self._entity_to_value_manager.mapping = values
 
     def __str__(self) -> str:
         return f"EntityVariableValuations(variable={self.variable}, values={self.values})"
@@ -112,42 +123,14 @@ class EntityVariableValuations:
     def __repr__(self) -> str:
         return self.__str__()
 
-    def ensure_capacity(self, num_entities: int) -> None:
-        """Ensures that the valuations list has at least num_entities entries."""
-        while len(self._entity_to_value) < num_entities:
-            self._entity_to_value.append(None)
-
-    def get_entity_value(self, entity: int) -> Scalar | None:
-        """Gets the valuation for a given entity index."""
-        if entity < 0 or entity >= self.num_values:
-            raise IndexError(f"entity index {entity} out of range [0, {self.num_values})")
-        return self._entity_to_value[entity]
-
-    def set_entity_value(self, entity: int, value: Scalar | None) -> None:
-        """Sets the valuation for a given entity index. Increases capacity if needed."""
-        self.ensure_capacity(entity + 1)
-        self._entity_to_value[entity] = value
-
-    @property
-    def has_undefined_values(self) -> bool:
-        """Checks if there are any undefined (None) values."""
-        return any(v is None for v in self._entity_to_value)
-
     def sync_domain(self) -> None:
         """Sets the variable domain from the valuations."""
-        if self.has_undefined_values:
-            raise ValueError(
-                f"The domain cannot be synced: entity {self._entity_to_value.index(None)} has undefined value."
-            )
-        self._variable.set_values(self._entity_to_value)  # type: ignore
-
-    def _reorder_entities(self, new_order: list[int]) -> None:
-        """Reorders the valuations according to the new entity order."""
-        self._entity_to_value = [self._entity_to_value[i] for i in new_order]
+        self.values.validate()
+        self.variable.set_values(self.values)  # type: ignore[assignment] validate() above ensures that no values are None
 
     def validate(self) -> None:
         self.sync_domain()
-        self._variable.validate()
+        self.variable.validate()
 
 
 #: Valuation of all variables for a single entity.
@@ -158,8 +141,8 @@ EntityValuation: TypeAlias = dict[Variable, Scalar | None]
 class EntityValuations:
     """Maintains a collection of VariableValuations."""
 
-    # number of entities (states, actions, etc.) to be associated with variable valuations
-    _num_entities: int = 0
+    #: entity space to which the variable valuations belong
+    entity_space: EntitySpace
     # for each variable name, the corresponding Variable
     _variable_name_to_variable: dict[str, Variable] = field(default_factory=dict)
     # for each variable, the corresponding EntityVariableValuations
@@ -171,7 +154,7 @@ class EntityValuations:
         return list(self._variable_to_valuations.keys())
 
     def __str__(self) -> str:
-        lines = [f"{self.__class__.__name__}(num_entities={self.num_entities}):"]
+        lines = [f"{self.__class__.__name__}:"]
         for variable in self.variables:
             variable_valuation = self.get_variable_valuations(variable)
             lines.append(f"  {variable_valuation}")
@@ -182,25 +165,17 @@ class EntityValuations:
         """Returns the number of variables defined."""
         return len(self.variables)
 
-    @property
-    def num_entities(self) -> int:
-        return self._num_entities
-
-    def assert_entity_index_in_range(self, entity: int) -> None:
-        if entity < 0 or entity >= self.num_entities:
-            raise IndexError(f"entity {entity} out of range [0, {self.num_entities})")
-
     def has_variable(self, variable_name: str) -> bool:
         """Checks if a VariableValuation exists for the given variable name."""
         return variable_name in self._variable_name_to_variable
 
-    def add_variable(self, variable_name: str) -> Variable:
+    def new_variable(self, variable_name: str) -> Variable:
         """Adds a new VariableValuation for a given variable."""
         if self.has_variable(variable_name):
             raise ValueError(f"Variable '{variable_name}' already exists.")
         variable = Variable(name=variable_name)
         self._variable_name_to_variable[variable_name] = variable
-        self._variable_to_valuations[variable] = EntityVariableValuations(variable)
+        self._variable_to_valuations[variable] = EntityVariableValuations(variable, entity_space=self.entity_space)
         return variable
 
     def get_variable(self, variable_name: str) -> Variable:
@@ -209,10 +184,10 @@ class EntityValuations:
             raise KeyError(f"Variable '{variable_name}' not found.")
         return self._variable_name_to_variable[variable_name]
 
-    def get_or_add_variable(self, variable_name: str) -> Variable:
+    def get_or_create_variable(self, variable_name: str) -> Variable:
         """Retrieves the Variable for a given variable name, adding it if it does not exist."""
         if not self.has_variable(variable_name):
-            return self.add_variable(variable_name)
+            return self.new_variable(variable_name)
         return self.get_variable(variable_name)
 
     def remove_variable(self, variable: Variable) -> None:
@@ -230,17 +205,10 @@ class EntityValuations:
         variable = self._variable_name_to_variable[variable.name]
         return self._variable_to_valuations[variable]
 
-    def ensure_capacity(self, num_entities: int) -> None:
-        """Ensures that all EntityVariableValuations have at least num_entities entries."""
-        for variable_valuation in self._variable_to_valuations.values():
-            variable_valuation.ensure_capacity(num_entities)
-        if self._num_entities < num_entities:
-            self._num_entities = num_entities
-
     def get_entity_valuation(self, entity: int) -> EntityValuation:
         """Gets the variable valuations for a given entity index."""
         return {
-            variable: variable_valuation.get_entity_value(entity)
+            variable: variable_valuation.values[entity]
             for variable, variable_valuation in self._variable_to_valuations.items()
         }
 
@@ -254,10 +222,9 @@ class EntityValuations:
 
     def set_entity_valuation(self, entity: int, valuation: EntityValuation) -> None:
         """Adds a new entity with the given variable valuations."""
-        self.ensure_capacity(entity + 1)
         for variable, value in valuation.items():
             variable_valuation = self.get_variable_valuations(variable)
-            variable_valuation.set_entity_value(entity, value)
+            variable_valuation.values[entity] = value
 
     def remove_entity(self, entity: int) -> None:
         """Removes the valuations for a given entity index."""
@@ -266,7 +233,7 @@ class EntityValuations:
     @property
     def has_distinct_valuations(self) -> bool:
         """Determines whether the variable valuations are distinct across all entities."""
-        valuations = [self.get_entity_valuation_tuple(entity) for entity in range(self.num_entities)]
+        valuations = [self.get_entity_valuation_tuple(entity) for entity in range(self.entity_space.num_entities)]
         return len(valuations) == len(set(valuations))
 
     def sync_domains(self) -> None:
@@ -277,29 +244,21 @@ class EntityValuations:
     def validate(self) -> None:
         self.sync_domains()
         for variable_valuation in self._variable_to_valuations.values():
-            if not variable_valuation.num_values == self.num_entities:
-                raise ValueError(
-                    f"Variable '{variable_valuation.variable.name}' has {variable_valuation.num_values} "
-                    f"entities, expected {self.num_entities}"
-                )
             variable_valuation.validate()
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, EntityValuations):
             return False
-        if self.num_entities != other.num_entities:
-            return False
         # TODO more thorough comparison
         return True
 
-    def _reorder_entities(self, new_order: list[int]) -> None:
-        """Reorders the valuations of the given entity class according to the new order."""
-        for variable_valuation in self._variable_to_valuations.values():
-            variable_valuation._reorder_entities(new_order)
 
-
+@dataclass
 class EntityClassValuations(dict[EntityClass, EntityValuations]):
     """Mapping from entity class to variable valuations."""
+
+    #: entity space to which the variable valuations belong
+    entity_spaces: dict[EntityClass, EntitySpace]
 
     @property
     def has_values(self) -> bool:
@@ -314,6 +273,14 @@ class EntityClassValuations(dict[EntityClass, EntityValuations]):
     def has_values_for(self, entity_class: EntityClass) -> bool:
         """Check if the annotation has values for the given entity class."""
         return self.get(entity_class) is not None
+
+    def add_valuations_for(self, entity_class: EntityClass) -> EntityValuations:
+        """Add a new EntityValuations for the given entity class."""
+        if self.has_values_for(entity_class):
+            raise ValueError(f"Annotation already has values for entity class {entity_class}")
+        valuations = EntityValuations(entity_space=self.entity_spaces[entity_class])
+        self[entity_class] = valuations
+        return valuations
 
     def get_valuations_for(self, entity_class: EntityClass) -> EntityValuations:
         """
@@ -341,6 +308,7 @@ class EntityClassValuations(dict[EntityClass, EntityValuations]):
         return "\n".join(lines)
 
     ### Convenience properties and methods for each entity class ###
+
     @property
     def has_state_valuations(self) -> bool:
         return self.has_values_for(EntityClass.STATES)
@@ -381,6 +349,21 @@ class EntityClassValuations(dict[EntityClass, EntityValuations]):
     def player_valuations(self) -> EntityValuations:
         return self.get_valuations_for(EntityClass.PLAYERS)
 
+    def add_state_valuations(self) -> EntityValuations:
+        return self.add_valuations_for(EntityClass.STATES)
+
+    def add_choice_valuations(self) -> EntityValuations:
+        return self.add_valuations_for(EntityClass.CHOICES)
+
+    def add_branch_valuations(self) -> EntityValuations:
+        return self.add_valuations_for(EntityClass.BRANCHES)
+
+    def add_observation_valuations(self) -> EntityValuations:
+        return self.add_valuations_for(EntityClass.OBSERVATIONS)
+
+    def add_player_valuations(self) -> EntityValuations:
+        return self.add_valuations_for(EntityClass.PLAYERS)
+
     def set_state_valuations(self, values: EntityValuations):
         self.set_valuations_for(EntityClass.STATES, values)
 
@@ -411,8 +394,42 @@ class EntityClassValuations(dict[EntityClass, EntityValuations]):
     def unset_player_valuations(self):
         self.unset_valuations_for(EntityClass.PLAYERS)
 
-    def _reorder_entities(self, entity_class: EntityClass, new_order: list[int]) -> None:
-        """Reorders the valuations of the given entity class according to the new order."""
-        if not self.has_values_for(entity_class):
-            return
-        self.get_valuations_for(entity_class)._reorder_entities(new_order)
+    ### Utility methods. ###
+
+    def validate(self) -> None:
+        for entity_class in self.entity_classes:
+            valuations = self.get_valuations_for(entity_class)
+            valuations.validate()
+
+
+@dataclass
+class VariableValuationsMixin(HasCommonEntitySpaces):
+    """Valuation of a variable for a specific entity (e.g. state or choice)."""
+
+    #: EntityClassValuations associated with the ATS.
+    _variable_valuations: EntityClassValuations | None = None
+
+    @property
+    def has_variable_valuations(self) -> bool:
+        return self._variable_valuations is not None
+
+    @property
+    def variable_valuations(self) -> EntityClassValuations:
+        if self._variable_valuations is None:
+            raise ValueError("variable valuations do not exist")
+        return self._variable_valuations
+
+    def add_variable_valuations(self) -> EntityClassValuations:
+        if self._variable_valuations is not None:
+            logger.warning("ATS that already has variable valuations, skipping add_variable_valuations")
+            return self._variable_valuations
+        self._variable_valuations = EntityClassValuations(entity_spaces=self._common_entity_spaces)
+        return self._variable_valuations
+
+    def remove_variable_valuations(self):
+        self._variable_valuations = None
+
+    def validate(self):
+        if self.has_variable_valuations:
+            self.variable_valuations.validate()
+        super().validate()

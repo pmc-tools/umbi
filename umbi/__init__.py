@@ -3,7 +3,7 @@ from importlib import import_module
 from .logger import set_log_level, setup_logging
 from .version import __format_revision__, __format_version__, __toolname__, __version__
 
-_SUBMODULES = {"ats", "binary", "datatypes", "io", "umb", "version"}
+_SUBMODULES = {"ats", "binary", "datatypes", "tar", "umb", "version"}
 
 
 def __getattr__(name: str):

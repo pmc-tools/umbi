@@ -24,7 +24,7 @@ from .json import (
     json_to_string,
     string_to_json,
 )
-from .numeric import Numeric, NumericType
+from .numeric import Numeric, NumericType, is_numeric_a_probability
 from .numeric_primitive import NumericPrimitive, NumericPrimitiveType
 from .primitive import Primitive, PrimitiveType
 from .scalar import (
@@ -50,6 +50,7 @@ __all__ = [
     # numeric.py
     "NumericType",
     "Numeric",
+    "is_numeric_a_probability",
     # scalar.py
     "ScalarType",
     "Scalar",

@@ -13,7 +13,7 @@ from umbi.datatypes import (
     scalar_promotion_type_of,
 )
 
-from .entity_class import EntityClass
+from .entity_space import EntityClass, EntityMapping, EntitySpace, OptionalMappingManager
 
 logger = logging.getLogger(__name__)
 
@@ -23,14 +23,141 @@ class Annotation:
     """General annotation."""
 
     name: str
+    entity_spaces: dict[EntityClass, EntitySpace]
     alias: str | None = None
     description: str | None = None
-    _entity_class_to_values: dict[EntityClass, list[Scalar]] = field(default_factory=dict[EntityClass, list[Scalar]])
+    _entity_managers: dict[EntityClass, OptionalMappingManager] = field(default_factory=dict)
 
     @classmethod
     def entity_class_enabled(cls, entity_class: EntityClass) -> bool:
         """Check if the given entity class is enabled for this annotation type. Can be overridden by subclasses to restrict which entity classes the annotation subclass can be applied to."""
         return True
+
+    def __post_init__(self):
+        for entity_class in EntityClass:
+            assert entity_class in self.entity_spaces, f"Entity space for {entity_class} must be provided"
+            self._entity_managers[entity_class] = OptionalMappingManager[Scalar](
+                name=f"{self.name}::{entity_class.value}_to_value",
+                domain=self.entity_spaces[entity_class],
+                can_have_mapping=lambda entity_class=entity_class: self.entity_class_enabled(entity_class),
+            )
+            self.entity_spaces[entity_class]._subscribe(
+                self, lambda *args: self._entity_managers[entity_class].auto_manage()
+            )
+
+    @property
+    def _state_values_manager(self) -> OptionalMappingManager[Scalar]:
+        return self._entity_managers[EntityClass.STATES]
+
+    @property
+    def _choice_values_manager(self) -> OptionalMappingManager[Scalar]:
+        return self._entity_managers[EntityClass.CHOICES]
+
+    @property
+    def _branch_values_manager(self) -> OptionalMappingManager[Scalar]:
+        return self._entity_managers[EntityClass.BRANCHES]
+
+    @property
+    def _player_values_manager(self) -> OptionalMappingManager[Scalar]:
+        return self._entity_managers[EntityClass.PLAYERS]
+
+    @property
+    def _observation_values_manager(self) -> OptionalMappingManager[Scalar]:
+        return self._entity_managers[EntityClass.OBSERVATIONS]
+
+    def add_state_values(self):
+        self._state_values_manager.create_mapping()
+
+    def remove_state_values(self):
+        self._state_values_manager.remove_mapping()
+
+    @property
+    def has_state_values(self) -> bool:
+        return self._state_values_manager.has_mapping
+
+    @property
+    def state_values(self) -> EntityMapping[Scalar]:
+        return self._state_values_manager.mapping
+
+    @state_values.setter
+    def state_values(self, values: Sequence[Scalar] | None) -> None:
+        self._state_values_manager.mapping = values
+
+    def add_choice_values(self):
+        self._choice_values_manager.create_mapping()
+
+    def remove_choice_values(self):
+        self._choice_values_manager.remove_mapping()
+
+    @property
+    def has_choice_values(self) -> bool:
+        return self._choice_values_manager.has_mapping
+
+    @property
+    def choice_values(self) -> EntityMapping[Scalar]:
+        return self._choice_values_manager.mapping
+
+    @choice_values.setter
+    def choice_values(self, values: Sequence[Scalar] | None) -> None:
+        self._choice_values_manager.mapping = values
+
+    def add_branch_values(self):
+        self._branch_values_manager.create_mapping()
+
+    def remove_branch_values(self):
+        self._branch_values_manager.remove_mapping()
+
+    @property
+    def has_branch_values(self) -> bool:
+        return self._branch_values_manager.has_mapping
+
+    @property
+    def branch_values(self) -> EntityMapping[Scalar]:
+        return self._branch_values_manager.mapping
+
+    @branch_values.setter
+    def branch_values(self, values: Sequence[Scalar] | None) -> None:
+        self._branch_values_manager.mapping = values
+
+    def add_player_values(self):
+        self._player_values_manager.create_mapping()
+
+    def remove_player_values(self):
+        self._player_values_manager.remove_mapping()
+
+    @property
+    def has_player_values(self) -> bool:
+        return self._player_values_manager.has_mapping
+
+    @property
+    def player_values(self) -> EntityMapping[Scalar]:
+        return self._player_values_manager.mapping
+
+    @player_values.setter
+    def player_values(self, values: Sequence[Scalar] | None) -> None:
+        self._player_values_manager.mapping = values
+
+    def add_observation_values(self):
+        self._observation_values_manager.create_mapping()
+
+    def remove_observation_values(self):
+        self._observation_values_manager.remove_mapping()
+
+    @property
+    def has_observation_values(self) -> bool:
+        return self._observation_values_manager.has_mapping
+
+    @property
+    def observation_values(self) -> EntityMapping[Scalar]:
+        return self._observation_values_manager.mapping
+
+    @observation_values.setter
+    def observation_values(self, values: Sequence[Scalar] | None) -> None:
+        self._observation_values_manager.mapping = values
+
+    def validate(self):
+        for manager in self._entity_managers.values():
+            manager.validate()
 
     def __str__(self) -> str:
         s = f"Annotation(name={self.name!r}, alias={self.alias!r}, description={self.description!r}, values={{\n"
@@ -40,10 +167,21 @@ class Annotation:
         s += "})"
         return s
 
+    ### legacy methods
+
     @property
-    def mappings(self) -> dict[EntityClass, list[Scalar]]:
-        """Alias for entity_class_to_values."""
-        return self._entity_class_to_values
+    def _entity_class_to_values(self) -> dict[EntityClass, EntityMapping[Scalar]]:
+        """Get a mapping from entity class to the corresponding values mapping for this annotation."""
+        entity_class_to_values = {}
+        for entity_class, manager in self._entity_managers.items():
+            if manager.has_mapping:
+                entity_class_to_values[entity_class] = manager.mapping
+        return entity_class_to_values
+
+    # @property
+    # def mappings(self) -> dict[EntityClass, EntityMapping[Scalar]]:
+    #     """Alias for entity_class_to_values."""
+    #     return self._entity_class_to_values
 
     @property
     def has_values(self) -> bool:
@@ -59,7 +197,7 @@ class Annotation:
         """Check if the annotation has values for the given entity class."""
         return self._entity_class_to_values.get(entity_class) is not None
 
-    def get_values_for(self, entity_class: EntityClass) -> list[Scalar]:
+    def get_values_for(self, entity_class: EntityClass) -> EntityMapping[Scalar]:
         """
         Get the values for the given entity class.
         :raises KeyError: if no values are set for the given entity class
@@ -72,84 +210,13 @@ class Annotation:
         """Set the values for the given entity class."""
         if not self.entity_class_enabled(entity_class):
             raise ValueError(f"Entity class {entity_class} is not enabled for this annotation type")
-        self._entity_class_to_values[entity_class] = list(values)
+        self._entity_managers[entity_class].mapping = values
 
-    def unset_values_for(self, entity_class: EntityClass) -> None:
-        """Unset the values for the given entity class."""
+    def remove_values_for(self, entity_class: EntityClass) -> None:
+        """Remove the values for the given entity class."""
         if not self.has_values_for(entity_class):
             raise KeyError(f"Annotation has no values for entity class {entity_class}")
         del self._entity_class_to_values[entity_class]
-
-    ### Convenience properties and methods for each entity class ###
-    @property
-    def has_state_values(self) -> bool:
-        return self.has_values_for(EntityClass.STATES)
-
-    @property
-    def has_choice_values(self) -> bool:
-        return self.has_values_for(EntityClass.CHOICES)
-
-    @property
-    def has_branch_values(self) -> bool:
-        return self.has_values_for(EntityClass.BRANCHES)
-
-    @property
-    def has_observation_values(self) -> bool:
-        return self.has_values_for(EntityClass.OBSERVATIONS)
-
-    @property
-    def has_player_values(self) -> bool:
-        return self.has_values_for(EntityClass.PLAYERS)
-
-    @property
-    def state_values(self) -> list[Scalar]:
-        return self.get_values_for(EntityClass.STATES)
-
-    @property
-    def choice_values(self) -> list[Scalar]:
-        return self.get_values_for(EntityClass.CHOICES)
-
-    @property
-    def branch_values(self) -> list[Scalar]:
-        return self.get_values_for(EntityClass.BRANCHES)
-
-    @property
-    def observation_values(self) -> list[Scalar]:
-        return self.get_values_for(EntityClass.OBSERVATIONS)
-
-    @property
-    def player_values(self) -> list[Scalar]:
-        return self.get_values_for(EntityClass.PLAYERS)
-
-    def set_state_values(self, values: Sequence[Scalar]):
-        self.set_values_for(EntityClass.STATES, values)
-
-    def set_choice_values(self, values: Sequence[Scalar]):
-        self.set_values_for(EntityClass.CHOICES, values)
-
-    def set_branch_values(self, values: Sequence[Scalar]):
-        self.set_values_for(EntityClass.BRANCHES, values)
-
-    def set_observation_values(self, values: Sequence[Scalar]):
-        self.set_values_for(EntityClass.OBSERVATIONS, values)
-
-    def set_player_values(self, values: Sequence[Scalar]):
-        self.set_values_for(EntityClass.PLAYERS, values)
-
-    def unset_state_values(self):
-        self.unset_values_for(EntityClass.STATES)
-
-    def unset_choice_values(self):
-        self.unset_values_for(EntityClass.CHOICES)
-
-    def unset_branch_values(self):
-        self.unset_values_for(EntityClass.BRANCHES)
-
-    def unset_observation_values(self):
-        self.unset_values_for(EntityClass.OBSERVATIONS)
-
-    def unset_player_values(self):
-        self.unset_values_for(EntityClass.PLAYERS)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Annotation):
@@ -167,22 +234,6 @@ class Annotation:
         :raises ValueError: if the annotation has no values
         """
         return scalar_promotion_type_of(itertools.chain.from_iterable(self._entity_class_to_values.values()))
-
-    def validate(self):
-        """Validate the annotation data."""
-        return
-
-    def _reorder_entities(self, entity_class: EntityClass, new_order: list[int]) -> None:
-        """Reorder the values for the given entity class according to the new order.
-
-        :param entity_class: the entity class for which to reorder values
-        :param new_order: a list of indices representing the new order of values. Must be a permutation of the full list of entity indices.
-        """
-        if not self.has_values_for(entity_class):
-            return
-        values = self._entity_class_to_values[entity_class]
-        # we don't check the order
-        self._entity_class_to_values[entity_class] = [values[i] for i in new_order]
 
 
 class RewardAnnotation(Annotation):
@@ -221,9 +272,10 @@ class AtomicPropositionAnnotation(Annotation):
 class ObservationAnnotation(Annotation):
     """Observation annotation is an integer annotation that can only be associated with either states or branches."""
 
-    def __init__(self, num_observations: int) -> None:
-        super().__init__(name="observation")
-        self.num_observations = num_observations
+    def __init__(self, **kwargs) -> None:
+        super().__init__(name="observation", **kwargs)
+        self._entity_managers[EntityClass.STATES].codomain = self.entity_spaces[EntityClass.OBSERVATIONS]
+        self._entity_managers[EntityClass.BRANCHES].codomain = self.entity_spaces[EntityClass.OBSERVATIONS]
 
     @classmethod
     def entity_class_enabled(cls, entity_class: EntityClass) -> bool:
@@ -248,15 +300,11 @@ class ObservationAnnotation(Annotation):
 
     def validate(self) -> None:
         super().validate()
-        if not (0 < self.num_observations):
-            raise ValueError(f"num_observations must be a positive integer, got {self.num_observations}")
-        if self.get_common_type() != NumericPrimitiveType.INT:
-            raise ValueError(f"Observation annotation type must be INT, got {self.get_common_type()}")
-        for item, obs in enumerate(self.values):
-            if not 0 <= obs < self.num_observations:  # type: ignore
-                raise ValueError(f"observation mapping[{item}] = {obs} is out of range [0, {self.num_observations})")
+        datatype = self.get_common_type()
+        if datatype != NumericPrimitiveType.INT:
+            raise ValueError(f"Observation annotation type must be INT, got {datatype}")
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, ObservationAnnotation):
             return False
-        return super().__eq__(other) and self.num_observations == other.num_observations
+        return super().__eq__(other)

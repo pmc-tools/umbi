@@ -98,21 +98,13 @@ class UmbDecoder(umbi.tar.TarCoder):
         if ts.num_players > 0:
             umb.state_to_player = self.read_vector(UmbFile.STATE_TO_PLAYER.value, UINT32, optional=True)
 
-        if ts.time == "discrete":
-            # ignore the file, all states are probabilistic
-            umb.state_is_markovian = [False] * ts.num_states
-        else:
-            if ts.time == "stochastic":
-                # ignore the file, all states are Markovian
-                umb.state_is_markovian = [True] * ts.num_states
+        if ts.time == "urgent-stochastic":
+            if self.has_file(UmbFile.STATE_IS_MARKOVIAN.value):
+                umb.state_is_markovian = self.read_bitvector(
+                    UmbFile.STATE_IS_MARKOVIAN.value, ts.num_states, optional=False
+                )
             else:
-                # ts.time == "urgent-stochastic"
-                if self.has_file(UmbFile.STATE_IS_MARKOVIAN.value):
-                    umb.state_is_markovian = self.read_bitvector(
-                        UmbFile.STATE_IS_MARKOVIAN.value, ts.num_states, optional=False
-                    )
-                else:
-                    umb.state_is_markovian = [True] * ts.num_states
+                umb.state_is_markovian = [False] * ts.num_states
 
         if ts.exit_rate_type is not None:
             umb.state_to_exit_rate = self.read_vector(

@@ -15,7 +15,7 @@ dependencies = [
   "marshmallow_oneofschema",
   "bitstring",
 ]
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 
 [project.urls]
 Homepage = "https://github.com/randriu/umbi"
@@ -71,7 +71,7 @@ exclude = [
   ".git",
   "__pycache__",
 ]
-target-version = "py311"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = ["I"]  # enable isort (import sorting) rules
@@ -87,7 +87,7 @@ exclude = [
   "**/__pycache__",
   "umbi.egg-info",
 ]
-pythonVersion = "3.11"
+pythonVersion = "3.12"
 typeCheckingMode = "standard"
 reportMissingImports = true
 reportMissingTypeStubs = false

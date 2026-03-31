@@ -2,15 +2,17 @@
 umbi demo: Perform reachability via VI on a fitting UMBI model
 """
 
-import argparse
 import math
 import pathlib
 
+import click
+
 import umbi
+import umbi.ats
 
 
 def reachability_vi(
-    model: umbi.ats.ExplicitAts,
+    model: umbi.ats.SimpleAts,
     goal_states: set[int],
     maximizing_players: set[int],
     stopping_criterion=1e-6,
@@ -29,18 +31,20 @@ def reachability_vi(
     if model.num_players <= 1:
         maximizing_states = active_states if 0 in maximizing_players else set()
     else:
+        assert model.state_to_player is not None, "Model must have player information for reachability VI."
         maximizing_states = set(s for s in active_states if model.state_to_player[s] in maximizing_players)
 
+    assert all(isinstance(p, umbi.datatypes.NumericPrimitive) for p in model.branch_to_probability), (
+        "Branch probabilities must be numeric."
+    )
     while True:
         max_diff = 0.0
         solved_states = set()
         for s in active_states:
-            values = (
-                sum(
-                    model.get_branch_probability(b) * value_vector[model.get_branch_target(b)]
-                    for b in model.choice_branch_range(c)
-                )
-                for c in model.state_choice_range(s)
+            values: list[umbi.datatypes.NumericPrimitive] = sum(
+                model.branch_to_probability[b] * value_vector[model.branch_to_target[b]]  # type: ignore[union-attr]
+                for choice in model.get_state_choices(s)
+                for b in model.get_choice_branches(choice)
             )
             new_value = max(values) if s in maximizing_states else min(values)
             assert new_value > value_vector[s] or math.isclose(new_value, value_vector[s])
@@ -56,32 +60,21 @@ def reachability_vi(
     return {s: value_vector[s] for s in model.initial_states}
 
 
-def main(args):
-    ats = umbi.io.read_ats(args.filename.as_posix())
-    values = reachability_vi(ats, set(args.goal_states), set(args.maximizing_players), args.precision)
+@click.command()
+@click.option("--input", type=click.Path(exists=True, path_type=pathlib.Path))
+@click.option("--goal-states", multiple=True, required=True, type=int, help="goal state indices")
+@click.option("--maximizing-players", multiple=True, default=[0], type=int, help="maximizing player indices")
+@click.option("--precision", type=float, default=1e-6, show_default=True, help="stopping criterion for VI")
+def main(input: pathlib.Path, goal_states: tuple[int, ...], maximizing_players: tuple[int, ...], precision: float):
+    ats = umbi.ats.read(input)
+    values = reachability_vi(ats, set(goal_states), set(maximizing_players), precision)
     for s, v in values.items():
-        if ats.has_state_valuations:
-            print(f"({' '.join(f'{k.name}:{v}' for k, v in ats.state_valuations.get_item_valuation(s).items())}): {v}")
-        else:
-            print(f"{s}: {v}")
+        state_str = f"{s}"
+        if ats.has_variable_valuations and ats.variable_valuations.has_state_valuations:
+            sv = ats.variable_valuations.state_valuations
+            state_str = f"({' '.join(f'{k.name}:{v}' for k, v in sv.get_entity_valuation(s).items())})"
+        print(f"{state_str}: {v}")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Perform reachability via (unsound) VI on a fitting UMBI model")
-    parser.add_argument("filename", help="filename of the UMBI model to load", type=pathlib.Path)
-    parser.add_argument(
-        "--goal-states",
-        help="comma-separated list of goal states",
-        type=int,
-        nargs="+",
-        required=True,
-    )
-    parser.add_argument(
-        "--maximizing-players",
-        help="comma-separated list of maximizing players",
-        type=int,
-        nargs="+",
-        default=[0],
-    )
-    parser.add_argument("--precision", help="stopping criterion for VI", type=float, default=1e-6)
-    main(parser.parse_args())
+    main()

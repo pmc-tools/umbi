@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
     help="logging level",
 )
 @click.option("--import-umb", type=click.Path(), required=False, help=".umb filepath to import as ExplicitUmb")
-@click.option("--import-ats", type=click.Path(), required=False, help=".umb filepath to import as ExplicitAts")
+@click.option("--import-ats", type=click.Path(), required=False, help=".umb filepath to import as SimpleAts")
 @click.option("--export", type=click.Path(), required=False, help=".umb filepath to export")
 def main(log_level, import_umb, import_ats, export):
     umbi.setup_logging(level=log_level)

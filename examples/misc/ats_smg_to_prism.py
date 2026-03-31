@@ -8,11 +8,12 @@ import logging
 import pathlib
 
 import umbi
+import umbi.ats
 
 log = logging.getLogger(__name__)
 
 
-def ats_smg_to_prism(ats: umbi.ats.ExplicitAts, output_path: pathlib.Path) -> None:
+def ats_smg_to_prism(ats: umbi.ats.SimpleAts, output_path: pathlib.Path) -> None:
     """
     Convert an ATS SMG to flat PRISM format.
 
@@ -46,7 +47,7 @@ def ats_smg_to_prism(ats: umbi.ats.ExplicitAts, output_path: pathlib.Path) -> No
             player_to_actions = {p: set() for p in player_to_states}
             for state in range(ats.num_states):
                 player = ats.state_to_player[state] if ats.state_to_player else 0
-                for choice in ats.state_choice_range(state):
+                for choice in ats.get_state_choices(state):
                     action_id = ats.choice_to_choice_action[choice]
                     action_name = ats.choice_action_to_name[action_id]
                     player_to_actions[player].add(action_name)
@@ -69,13 +70,13 @@ def ats_smg_to_prism(ats: umbi.ats.ExplicitAts, output_path: pathlib.Path) -> No
                     if ats.state_to_player and ats.state_to_player[state] != player:
                         continue
 
-                    for choice in ats.state_choice_range(state):
+                    for choice in ats.get_state_choices(state):
                         action_id = ats.choice_to_choice_action[choice]
                         action_name = ats.choice_action_to_name[action_id]
 
                         # collect branches for this choice
                         branches = []
-                        for branch in ats.choice_branch_range(choice):
+                        for branch in ats.get_choice_branches(choice):
                             target = ats.branch_to_target[branch]
                             prob = ats.branch_to_probability[branch]
                             branches.append((target, prob))
@@ -98,13 +99,13 @@ def ats_smg_to_prism(ats: umbi.ats.ExplicitAts, output_path: pathlib.Path) -> No
             f.write("module main\n")
 
             for state in range(ats.num_states):
-                for choice in ats.state_choice_range(state):
+                for choice in ats.get_state_choices(state):
                     action_id = ats.choice_to_choice_action[choice]
                     action_name = ats.choice_action_to_name[action_id]
 
                     # collect branches for this choice
                     branches = []
-                    for branch in ats.choice_branch_range(choice):
+                    for branch in ats.get_choice_branches(choice):
                         target = ats.branch_to_target[branch]
                         prob = ats.branch_to_probability[branch]
                         branches.append((target, prob))

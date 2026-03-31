@@ -1,15 +1,23 @@
 #!/usr/bin/env python3
 """Demonstration of umbfile manipulation via ExplicitUmb."""
 
+import pathlib
+
 import click
 
 import umbi
 
 
 @click.command()
-@click.option("--input", type=click.Path(exists=True), required=True, help="Input umbfile path")
-@click.option("--output", type=click.Path(), default="out.umb", show_default=True, help="Output umbfile path")
-def main(input: str, output: str):
+@click.option("--input", type=click.Path(exists=True, path_type=pathlib.Path), required=True, help="Input umbfile path")
+@click.option(
+    "--output",
+    type=click.Path(path_type=pathlib.Path),
+    default="out.umb",
+    show_default=True,
+    help="Output umbfile path",
+)
+def main(input: pathlib.Path, output: pathlib.Path):
     """Read a umbfile, print its contents, modify it, and write it out."""
     umbi.setup_logging()
 
@@ -45,7 +53,7 @@ def main(input: str, output: str):
         umb.annotations[annotation_category][annotation_name] = {}
     umb.annotations[annotation_category][annotation_name]["states"] = list(range(num_states))
 
-    print("Writing modified UMB file...")
+    print(f"Writing modified UMB file to {output}...")
     umbi.umb.write(umb, output)
 
     print("Reading back to validate...")

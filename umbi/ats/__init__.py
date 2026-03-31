@@ -15,9 +15,10 @@ from .ats_to_umb import (
     read,
     write,
 )
-from .entity_class import EntityClass
-from .explicit_ats import Branch, Choice, ExplicitAts, TimeType
+from .entity_space import EntityClass
 from .model_info import ModelInfo
+from .simple_ats import SimpleAts
+from .time_type import TimeType
 from .variable_valuations import (
     EntityClassValuations,
     EntityValuation,
@@ -35,11 +36,10 @@ __all__ = [
     "RewardAnnotation",
     # model_info
     "ModelInfo",
-    # explicit_ats
-    "Branch",
-    "Choice",
+    # time_type
     "TimeType",
-    "ExplicitAts",
+    # explicit_ats
+    "SimpleAts",
     # variable_valuations
     "EntityVariableValuations",
     "Variable",

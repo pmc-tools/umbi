@@ -1,20 +1,30 @@
 #!/usr/bin/env python3
 """Demonstration of tarfile manipulation via TarCoder."""
 
+import pathlib
+
 import click
 
 import umbi
 
 
 @click.command()
-@click.option("--input", type=click.Path(exists=True), required=False, help="Input tarfile path")
-@click.option("--output", type=click.Path(), default="output.tar.gz", show_default=True, help="Output tarfile path")
-def main(input: str, output: str):
+@click.option(
+    "--input", type=click.Path(exists=True, path_type=pathlib.Path), required=False, help="Input tarfile path"
+)
+@click.option(
+    "--output",
+    type=click.Path(path_type=pathlib.Path),
+    default="output.tar.gz",
+    show_default=True,
+    help="Output tarfile path",
+)
+def main(input: pathlib.Path, output: pathlib.Path):
     """Read a tarfile, print its contents, modify it, and write it out."""
     umbi.setup_logging()
 
     print(f"Reading tarfile: {input}")
-    tarfile = umbi.io.TarCoder(input)
+    tarfile = umbi.tar.TarCoder(input)
 
     print("Filenames in tarfile:")
     print(tarfile.filenames)
@@ -40,7 +50,7 @@ def main(input: str, output: str):
     print(f"Read vector from {filename}: {vector_out}")
     assert vector_out == vector, f"read vector {vector_out} does not match original vector {vector}"
 
-    print("Writing modified tarfile...")
+    print(f"Writing modified tarfile to {output}...")
     tarfile.write(tarpath=output, compression="gz")
     print("Done!")
 

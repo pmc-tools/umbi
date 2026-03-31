@@ -51,3 +51,11 @@ def promote_numeric_to(value: Numeric, target_type: NumericType) -> Numeric:
         if not isinstance(value, Interval):
             value = Interval(value, value)
         return promote_interval_to(value, target_type)
+
+
+def is_numeric_a_probability(value: Numeric) -> bool:
+    """Check if a numeric value is in the interval [0, 1]."""
+    if isinstance(value, NumericPrimitive):
+        return 0 <= value <= 1
+    else:  # isinstance(value, Interval):
+        return value.left >= 0 and value.right <= 1

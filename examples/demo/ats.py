@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Demonstration of umbfile manipulation via ExplicitAts."""
+"""Demonstration of umbfile manipulation via SimpleAts."""
+
+import pathlib
 
 import click
 
@@ -7,9 +9,15 @@ import umbi
 
 
 @click.command()
-@click.option("--input", type=click.Path(exists=True), required=True, help="Input umbfile path")
-@click.option("--output", type=click.Path(), default="out.umb", show_default=True, help="Output umbfile path")
-def main(input: str, output: str):
+@click.option("--input", type=click.Path(exists=True, path_type=pathlib.Path), required=True, help="Input umbfile path")
+@click.option(
+    "--output",
+    type=click.Path(path_type=pathlib.Path),
+    default="out.umb",
+    show_default=True,
+    help="Output umbfile path",
+)
+def main(input: pathlib.Path, output: pathlib.Path):
     """Read a umbfile, print its contents, modify it, and write it out."""
     umbi.setup_logging()
 
@@ -23,14 +31,13 @@ def main(input: str, output: str):
 
     print("Adding custom rewards...")
     annotation_name = "state_index"
-    reward_annotation = umbi.ats.RewardAnnotation(
+    reward_annotation = ats.new_reward_annotation(
         name=annotation_name,
         description="Reward annotation for states, equal to the state index",
     )
-    reward_annotation.set_state_values(list(range(ats.num_states)))
-    ats.add_reward_annotation(reward_annotation)
+    reward_annotation.state_values = list(ats.states)
 
-    print("Writing modified ATS ...")
+    print(f"Writing modified ATS to {output}...")
     umbi.ats.write(ats, output)
 
     print("Reading back to validate...")

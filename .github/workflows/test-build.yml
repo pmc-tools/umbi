@@ -23,10 +23,10 @@ jobs:
           args: "--version"
 
       - name: lint code
-        run: ruff check --output-format=github --target-version=py311
+        run: ruff check --output-format=github --target-version=py312
 
       - name: check code formatting
-        run: ruff format --diff --target-version=py311
+        run: ruff format --diff --target-version=py312
         continue-on-error: true # Remove this once the project is formatted
 
       - name: install uv

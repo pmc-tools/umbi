@@ -7,7 +7,8 @@ import logging
 import random
 import time
 
-from ..explicit_ats import ExplicitAts, TimeType
+from ..simple_ats import SimpleAts
+from ..time_type import TimeType
 
 logger = logging.getLogger(__name__)
 
@@ -173,21 +174,22 @@ def random_transition_function(
     return delta, actions_at_state, all_actions
 
 
-def random_game_ats(num_states: int, seed: int | None = None) -> ExplicitAts:
+def random_game(num_states: int, seed: int | None = None) -> SimpleAts:
     """
     Generate a random stochastic game connected from initial state.
 
     :param num_states: Number of states (n).
     :param seed: Random seed for reproducibility.
-    :return: ExplicitAts representing the random stochastic game.
+    :return: SimpleAts representing the random stochastic game.
     """
     delta, actions_at_state, all_actions = random_transition_function(num_states, seed)
 
     # create ATS
-    ats = ExplicitAts(
-        time=TimeType.STOCHASTIC,
-        num_players=2,
-    )
+    ats = SimpleAts()
+    ats.time = TimeType.DISCRETE
+    ats.num_players = 2
+    ats.num_states = num_states
+    ats.initial_states = [0]
 
     # partition S uniformly at random into player states and probabilistic states
     # player states are controlled by player 0, probabilistic states by player 1
@@ -196,29 +198,26 @@ def random_game_ats(num_states: int, seed: int | None = None) -> ExplicitAts:
     # set player information
     ats.state_to_player = [0 if is_player0 else 1 for is_player0 in is_player0_state]
 
-    # set initial state to the state with index 0
-    ats.set_initial_states([0])
-
     # build the ATS structure from delta and actions_at_state
     ats.num_choice_actions = len(all_actions)
-    ats.choice_action_to_name = all_actions
+    ats.choice_action_to_name = list(all_actions)
 
     # build CSR structures
     logger.info("building CSR structures ...")
     build_start = time.time()
 
-    for s in range(num_states):
-        state = ats.add_state()
+    for s in ats.states:
         for action in sorted(actions_at_state[s]):
-            choice = ats.add_state_choice(state=state)
-            choice.action = action
+            choice = ats.new_state_choice(state=s)
+            ats.choice_to_choice_action[choice] = action
 
             # get all branches for this (s, action) pair
             branches = delta[s][action]
             branches.sort()  # sort by target state
 
             for target, prob in branches:
-                choice.add_branch(target=target, prob=prob)
+                ats.new_choice_branch(choice=choice, target=target, prob=prob)
+                ats.new_choice_branch(choice=choice, target=target, prob=prob)
 
     build_time = time.time() - build_start
     ats.validate()

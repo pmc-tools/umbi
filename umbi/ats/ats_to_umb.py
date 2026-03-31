@@ -6,16 +6,16 @@ import umbi.umb.index
 import umbi.version
 from umbi.binary import SizedType
 
-from .annotations import Annotation, AtomicPropositionAnnotation, ObservationAnnotation, RewardAnnotation
-from .entity_class import EntityClass
-from .explicit_ats import ExplicitAts, TimeType
+from .annotations import Annotation
+from .entity_space import EntityClass
 from .model_info import ModelInfo
-from .variable_valuations import EntityClassValuations, EntityValuations
+from .simple_ats import SimpleAts
+from .time_type import TimeType
 
 
-def explicit_umb_to_explicit_ats(umb: umbi.umb.ExplicitUmb) -> ExplicitAts:
+def explicit_umb_to_explicit_ats(umb: umbi.umb.ExplicitUmb) -> SimpleAts:
     umb.validate()
-    ats = ExplicitAts()
+    ats = SimpleAts()
 
     ## index
     # strip format_version, format_revision and file_data
@@ -36,56 +36,61 @@ def explicit_umb_to_explicit_ats(umb: umbi.umb.ExplicitUmb) -> ExplicitAts:
     ts = umb.index.transition_system
     ats.time = TimeType(ts.time)
     ats.num_players = ts.num_players
-    ats.num_initial_states = ts.num_initial_states
-    ats.num_choice_actions = ts.num_choice_actions
-    ats.num_branch_actions = ts.num_branch_actions
-    ats.player_to_name = ts.player_to_name
+    ats.num_states = ts.num_states
+
+    if ts.num_players > 0:
+        if ts.player_to_name is not None:
+            ats.player_to_name = ts.player_to_name
+        if umb.state_to_player is not None:
+            ats.state_to_player = umb.state_to_player
+        else:
+            ats.state_to_player = [0] * ats.num_states
 
     ## values
     ats.state_is_initial = umb.state_is_initial
-    ats.state_to_player = umb.state_to_player
-
-    ats.state_is_markovian = umb.state_is_markovian
-    ats.state_to_exit_rate = umb.state_to_exit_rate
-
-    for state_index in range(ts.num_states):
-        state = ats.add_state()
-        assert state == state_index
+    if umb.state_is_markovian is not None:
+        ats.state_is_markovian = umb.state_is_markovian
+    if umb.state_to_exit_rate is not None:
+        ats.state_to_exit_rate = umb.state_to_exit_rate
 
     state_to_choices = (
         umb.state_to_choices if umb.state_to_choices is not None else [s for s in range(ats.num_states + 1)]
     )
+    have_choice_actions = ts.num_choice_actions > 0
+    if have_choice_actions:
+        assert umb.choice_to_choice_action is not None, "num_choice_actions > 0 but choice_to_choice_action is None"
+        ats.num_choice_actions = ts.num_choice_actions
+        ats.choice_action_to_name = umb.choice_action_to_string
+    have_branch_actions = ts.num_branch_actions > 0
+    if have_branch_actions:
+        assert umb.branch_to_branch_action is not None, "num_branch_actions > 0 but branch_to_branch_action is None"
+        ats.num_branch_actions = ts.num_branch_actions
+        ats.branch_action_to_name = umb.branch_action_to_string
+
     if ts.num_choices > 0:
         for state in ats.states:
             for choice_idx in range(state_to_choices[state], state_to_choices[state + 1]):
-                choice = ats.add_state_choice(state=state)
+                choice = ats.new_state_choice(state=state)
                 if ts.num_branches > 0:
                     assert umb.choice_to_branches is not None, "num_branches > 0 but choice_to_branches is None"
                     for branch_idx in range(umb.choice_to_branches[choice_idx], umb.choice_to_branches[choice_idx + 1]):
                         assert umb.branch_to_target is not None, "num_branches > 0 but branch_to_target is None"
                         target = umb.branch_to_target[branch_idx]
                         prob = umb.branch_to_probability[branch_idx] if umb.branch_to_probability is not None else None
-                        branch_action = (
-                            umb.branch_to_branch_action[branch_idx] if umb.branch_to_branch_action is not None else None
-                        )
-                        choice.add_branch(target=target, prob=prob, action=branch_action)
-                if ts.num_choice_actions > 0:
-                    assert umb.choice_to_choice_action is not None, (
-                        "num_choice_actions > 0 but choice_to_choice_action is None"
-                    )
-                    choice.action = umb.choice_to_choice_action[choice_idx]
-
-    ats.choice_action_to_name = umb.choice_action_to_string
-    ats.branch_action_to_name = umb.branch_action_to_string
+                        branch = ats.new_choice_branch(choice=choice, target=target, prob=prob)
+                        if have_branch_actions:
+                            ats.branch_to_branch_action[branch] = umb.branch_to_branch_action[branch_idx]  # type: ignore[subscript]
+                if have_choice_actions:
+                    ats.choice_to_choice_action[choice] = umb.choice_to_choice_action[choice_idx]  # type: ignore[subscript]
 
     # load annotations
     if umb.index.annotations is not None:
         assert umb.annotations is not None
         for category, name_to_annotation in umb.index.annotations.items():
             constructor = {
-                "rewards": RewardAnnotation,
-                "aps": AtomicPropositionAnnotation,
-            }[category] or Annotation
+                "rewards": ats.new_reward_annotation,
+                "aps": ats.new_ap_annotation,
+            }[category] or (lambda **kwargs: ats.new_annotation(category, **kwargs))
             for name, umb_annotation in name_to_annotation.items():
                 ats_annotation = constructor(
                     name=name,
@@ -99,10 +104,18 @@ def explicit_umb_to_explicit_ats(umb: umbi.umb.ExplicitUmb) -> ExplicitAts:
                 ats.annotations[category] = dict[str, Annotation]()
                 ats.annotations[category][name] = ats_annotation
 
+    # load observations
+    if ts.observations_apply_to is not None:
+        assert ts.num_observations > 0
+        assert umb.entity_to_observation is not None
+        ats.num_observations = ts.num_observations
+        entity_class = EntityClass(ts.observations_apply_to)
+        ats.observation_annotation.set_values_for(entity_class, umb.entity_to_observation)
+
     # load valuations
     if umb.index.valuations is not None:
         assert umb.valuations is not None
-        ats.variable_valuations = EntityClassValuations()
+        ats.add_variable_valuations()
         for applies_to, valuation_description in umb.index.valuations.items():
             # ignore unique and num_strings
             # assume a single valuation class
@@ -112,31 +125,23 @@ def explicit_umb_to_explicit_ats(umb: umbi.umb.ExplicitUmb) -> ExplicitAts:
 
             entity_to_valuation = umb.valuations[applies_to]
             entity_class = EntityClass(applies_to)
-            entity_valuations = EntityValuations()
+            entity_valuations = ats.variable_valuations.add_valuations_for(entity_class)
             for attribute in struct_type.attributes:
                 if attribute.lower is not None or attribute.upper is not None:
                     raise NotImplementedError("bounds on valuation variables not supported yet")
                 if attribute.offset is not None and attribute.offset != 0:
                     raise NotImplementedError("offsets on valuation variables not supported yet")
-                entity_valuations.add_variable(variable_name=attribute.name)
+                entity_valuations.new_variable(variable_name=attribute.name)
             for entity, valuation in enumerate(entity_to_valuation):
                 valuation = {entity_valuations.get_variable(var_name): value for var_name, value in valuation.items()}
                 entity_valuations.set_entity_valuation(entity, valuation)
-            ats.variable_valuations.set_valuations_for(entity_class, entity_valuations)
-
-    # load observations
-    if ts.observations_apply_to is not None:
-        assert ts.num_observations > 0
-        assert umb.entity_to_observation is not None
-        ats.observation_annotation = ObservationAnnotation(num_observations=ts.num_observations)
-        entity_class = EntityClass(ts.observations_apply_to)
-        ats.observation_annotation.set_values_for(entity_class, umb.entity_to_observation)
 
     ats.validate()
     return ats
 
 
-def explicit_ats_to_explicit_umb(ats: ExplicitAts) -> umbi.umb.ExplicitUmb:
+def explicit_ats_to_explicit_umb(ats: SimpleAts) -> umbi.umb.ExplicitUmb:
+    ats.sort_transitions()
     ats.validate()
     umb = umbi.umb.ExplicitUmb()
 
@@ -167,15 +172,15 @@ def explicit_ats_to_explicit_umb(ats: ExplicitAts) -> umbi.umb.ExplicitUmb:
             num_states=ats.num_states,
             num_initial_states=ats.num_initial_states,
             num_choices=ats.num_choices,
-            num_choice_actions=ats.num_choice_actions,
+            num_choice_actions=0,  # for now
             num_branches=ats.num_branches,
-            num_branch_actions=ats.num_branch_actions,
+            num_branch_actions=0,  # for now
             num_observations=ats.num_observations,
             observations_apply_to=None,  # for now
             branch_probability_type=None,  # for now
             exit_rate_type=None,  # for now
             observation_probability_type=None,  # for now
-            player_to_name=ats.player_to_name,
+            player_to_name=None,  # for now
         ),
         # create annotations
         annotations=None,  # for now
@@ -185,13 +190,19 @@ def explicit_ats_to_explicit_umb(ats: ExplicitAts) -> umbi.umb.ExplicitUmb:
     ## values
     # warning: this does not copy the values, but directly uses the lists from ats.
     # this is fine as long as we don't modify them
-    umb.state_is_initial = ats.state_is_initial
-    umb.state_to_player = ats.state_to_player
+    umb.state_is_initial = list(ats.state_is_initial)
+    if ats.has_players:
+        if ats.has_state_to_player:
+            umb.state_to_player = ats.state_to_player
+        if ats.has_player_to_name:
+            umb.index.transition_system.player_to_name = list(ats.player_to_name)
 
-    umb.state_is_markovian = ats.state_is_markovian
-    if ats.state_to_exit_rate is not None:
+    if ats.has_state_is_markovian:
+        umb.state_is_markovian = list(ats.state_is_markovian)
+    if ats.has_state_to_exit_rate:
         # promote all to common type
-        target_type, vector = umbi.datatypes.promote_scalars(ats.state_to_exit_rate)
+        state_to_exit_rate = list(ats.state_to_exit_rate)
+        target_type, vector = umbi.datatypes.promote_scalars(state_to_exit_rate)
         assert isinstance(target_type, umbi.datatypes.NumericType), "exit rates must be numeric"
         umb.index.transition_system.exit_rate_type = SizedType.for_type(target_type)
         umb.state_to_exit_rate = vector  # type: ignore
@@ -204,33 +215,33 @@ def explicit_ats_to_explicit_umb(ats: ExplicitAts) -> umbi.umb.ExplicitUmb:
     umb.state_to_choices.append(num_choices)
 
     if ats.num_choices > 0:
-        if ats.num_choice_actions > 0:
-            umb.choice_to_choice_action = [choice.action for choice in ats.choices]  # type: ignore
+        if ats.has_choice_actions:
+            umb.index.transition_system.num_choice_actions = ats.num_choice_actions
+            umb.choice_to_choice_action = list(ats.choice_to_choice_action)
+            if ats.has_choice_action_to_name:
+                umb.choice_action_to_string = list(ats.choice_action_to_name)
 
-        branches = []
+        num_branches = 0
         umb.choice_to_branches = []
         for choice in ats.choices:
-            umb.choice_to_branches.append(len(branches))
-            branches.extend(choice.branches)
-        umb.choice_to_branches.append(len(branches))
-        if len(branches) > 0:
-            umb.branch_to_target = [branch.target for branch in branches]
-            if any(branch.prob is not None for branch in branches):
+            umb.choice_to_branches.append(num_branches)
+            num_branches += ats.num_choice_branches(choice)
+        umb.choice_to_branches.append(num_branches)
+        if num_branches > 0:
+            umb.branch_to_target = list(ats.branch_to_target)
+            if any(prob is not None for prob in ats.branch_to_probability):
                 # has branch probabilities
-                branch_to_probability = [branch.prob if branch.prob is not None else 1 for branch in branches]
+                branch_to_probability = [prob if prob is not None else 1 for prob in ats.branch_to_probability]
                 # promote
                 target_type, vector = umbi.datatypes.promote_scalars(branch_to_probability)
                 # assert isinstance(target_type, umbi.datatypes.NumericType), "branch probabilities must be numeric"
                 umb.index.transition_system.branch_probability_type = SizedType.for_type(target_type)
                 umb.branch_to_probability = vector  # type: ignore
-            if ats.num_branch_actions > 0:
-                branch_actions = [branch.action for branch in branches]
-                if any(action is None for action in branch_actions):
-                    raise ValueError("if num_branch_actions > 0, all branches must have an action")
-                umb.branch_to_branch_action = branch_actions  # type: ignore
-
-    umb.choice_action_to_string = ats.choice_action_to_name
-    umb.branch_action_to_string = ats.branch_action_to_name
+            if ats.has_branch_actions:
+                umb.index.transition_system.num_branch_actions = ats.num_branch_actions
+                umb.branch_to_branch_action = list(ats.branch_to_branch_action)
+                if ats.has_branch_action_to_name:
+                    umb.branch_action_to_string = list(ats.branch_action_to_name)
 
     # add annotations
     umb.index.annotations = {}
@@ -259,7 +270,7 @@ def explicit_ats_to_explicit_umb(ats: ExplicitAts) -> umbi.umb.ExplicitUmb:
                 umb.annotations[category][name][entity_class.value] = values
 
     # add valuations
-    if ats.variable_valuations is not None:
+    if ats.has_variable_valuations:
         umb.index.valuations = {}
         umb.valuations = {}
         for entity_class, entity_valuations in ats.variable_valuations.items():
@@ -288,14 +299,14 @@ def explicit_ats_to_explicit_umb(ats: ExplicitAts) -> umbi.umb.ExplicitUmb:
             valuation_description.unique = entity_valuations.has_distinct_valuations
             umb.index.valuations[applies_to] = valuation_description
             umb.valuations[applies_to] = []
-            for entity in range(entity_valuations.num_entities):
+            for entity in range(entity_valuations.entity_space.num_entities):
                 valuations = {var.name: var_values[var][entity] for var in entity_valuations.variables}
                 umb.valuations[applies_to].append(valuations)
 
     # add observations
-    if ats.observation_annotation is not None:
-        umb.index.transition_system.observations_apply_to = ats.observation_annotation.entity_class.value  # type: ignore
-        umb.index.transition_system.num_observations = ats.observation_annotation.num_observations
+    if ats.has_observations:
+        umb.index.transition_system.observations_apply_to = ats.observation_annotation.entity_class.value  # type: ignore[subscript]
+        umb.index.transition_system.num_observations = ats.num_observations
         umb.entity_to_observation = ats.observation_annotation.values
 
     umb.validate()
@@ -305,22 +316,22 @@ def explicit_ats_to_explicit_umb(ats: ExplicitAts) -> umbi.umb.ExplicitUmb:
 # API
 
 
-def read(umbpath: str | pathlib.Path, strict: bool = False) -> ExplicitAts:
+def read(umbpath: str | pathlib.Path, strict: bool = False) -> SimpleAts:
     """Read ATS from a umbfile.
 
     :param umbpath: path to the umbfile
     :param strict: in the strict mode, unread files will raise an error
-    :return: ExplicitAts object containing the data from the umbfile
+    :return: SimpleAts object containing the data from the umbfile
     """
     umb = umbi.umb.read(umbpath, strict=strict)
     ats = explicit_umb_to_explicit_ats(umb)
     return ats
 
 
-def write(ats: ExplicitAts, umbpath: str | pathlib.Path) -> None:
+def write(ats: SimpleAts, umbpath: str | pathlib.Path) -> None:
     """Write ATS to a umbfile.
 
-    :param ats: ExplicitAts object to write
+    :param ats: SimpleAts object to write
     :param umbpath: path to the umbfile to write to
     """
     umb = explicit_ats_to_explicit_umb(ats)
