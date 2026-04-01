@@ -15,7 +15,7 @@ permissions:
 jobs:
   update-stable:
     runs-on: ubuntu-latest
-    if: ${{ github.ref_name == 'main' }}
+    if: ${{ (github.event_name == 'push' && github.ref_type == 'tag') || github.event_name == 'workflow_run' }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -32,6 +32,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     needs: update-stable
+    if: ${{ (github.event_name == 'push' && github.ref_type == 'tag') || github.event_name == 'workflow_run' }}
     steps:
       - name: (debug) print workflow trigger
         run: |
@@ -72,7 +73,7 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     needs: build
-    if: ${{ github.ref_name == 'main' }}
+    if: ${{ (github.event_name == 'push' && github.ref_type == 'tag') || github.event_name == 'workflow_run' }}
     steps:
       - name: download build artifacts
         uses: actions/download-artifact@v4
