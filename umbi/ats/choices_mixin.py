@@ -1,5 +1,5 @@
 import logging
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 
 from umbi.datatypes import Numeric, is_numeric_a_probability
@@ -157,12 +157,14 @@ class ChoicesMixin(
     def new_state_choice(
         self,
         state: int,
-        targets: Iterable[int] | None = None,
-        target_prob: Callable[[int], Numeric | None] | None = None,
+        targets: Sequence[int] | None = None,
+        probs: Sequence[Numeric] | None = None,
+        target_prob: Callable[[int], Numeric] | None = None,
     ) -> int:
         """Add a choice to the given state.
         :param state: source state for the new choice
         :param targets: optional iterable of target states for the branches of the new choice
+        :param probs: optional probabilities for the new branches
         :param target_prob: optional function mapping target states to branch probabilities
         :return: the new choice index
         """
@@ -170,8 +172,8 @@ class ChoicesMixin(
         choice = self._new_choice()
         self.state_to_choices[state].append(choice)
         self._choice_to_state[choice] = state
-        if targets is not None and target_prob is not None:
-            self.new_choice_branches(choice, targets=targets, target_prob=target_prob)
+        if targets is not None:
+            self.new_choice_branches(choice, targets=targets, probs=probs, target_prob=target_prob)
         return choice
 
     def remove_choice(self, choice: int) -> list[int]:
@@ -193,33 +195,56 @@ class ChoicesMixin(
         for choice in choices:
             self.remove_choice(choice)
 
-    def new_choice_branch(self, choice: int, target: int | None = None, prob: Numeric | None = None) -> int:
-        """Add a branch to the given choice and return it."""
+    def new_choice_branch(
+        self,
+        choice: int,
+        target: int,
+        prob: Numeric | None = None,
+        target_prob: Callable[[int], Numeric] | None = None,
+    ) -> int:
+        """Add a branch to the given choice and return it.
+        :param choice: source choice for the new branch
+        :param target: target state for the new branch
+        :param prob: optional probability for the new branch
+        :param target_prob: optional function mapping target states to branch probabilities
+        :note: if the ATS has branch probabilities, either prob or target_prob must be provided, but not both
+        :return: the new branch index
+        """
         self._choice_space.check_entity(choice)
-        if target is not None:
-            self._state_space.check_entity(target)
+        self._state_space.check_entity(target)
         new_branch = self._new_branch()
         self._choice_to_branches[choice].append(new_branch)
         self._branch_to_choice[new_branch] = choice
-        if target is not None:
-            self._branch_to_target[new_branch] = target
+        self._branch_to_target[new_branch] = target
+        if prob is None and target_prob is not None:
+            prob = target_prob(target)
         if prob is not None:
             self._branch_to_probability[new_branch] = prob
         return new_branch
 
     def new_choice_branches(
-        self, choice: int, targets: Iterable[int], target_prob: Callable[[int], Numeric | None]
+        self,
+        choice: int,
+        targets: Sequence[int],
+        probs: Sequence[Numeric] | None = None,
+        target_prob: Callable[[int], Numeric] | None = None,
     ) -> list[int]:
         """Add branches to the given choice for multiple targets.
         :param choice: choice to add branches to
         :param targets: target states for the new branches
-        :param target_prob: function mapping target states to branch probabilities
+        :param probs: optional probabilities for the new branches
+        :param target_prob: optional function mapping target states to branch probabilities
+        :note: if the ATS has branch probabilities, either probs or target_prob must be provided, but not both
         :return: list of new branches added
         """
         new_branches = []
-        for target in targets:
-            prob = target_prob(target)
-            branch = self.new_choice_branch(choice, target=target, prob=prob)
+        if probs is not None and len(probs) != len(targets):
+            raise ValueError("Length of probs must match length of targets.")
+        for target_idx, target in enumerate(targets):
+            prob = None
+            if probs is not None:
+                prob = probs[target_idx]
+            branch = self.new_choice_branch(choice, target=target, prob=prob, target_prob=target_prob)
             new_branches.append(branch)
         return new_branches
 

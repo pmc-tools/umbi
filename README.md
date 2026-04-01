@@ -24,6 +24,26 @@ ats.initial_states = [ats.num_states - 1]
 umbi.ats.write(ats, "out.umb")
 ```
 
+Here is another example where we create a simple CTMC:
+
+```python
+import umbi
+from fractions import Fraction
+
+ats = umbi.ats.SimpleAts()
+ats.time = umbi.ats.TimeType.STOCHASTIC
+ats.num_states = 3
+ats.initial_states = [0]
+ats.state_to_exit_rate = [3/2, Fraction(7,3), 1]
+ats.new_state_choice(state=2, targets=[2], probs=[1])
+ats.new_state_choice(state=1, targets=list(ats.states), target_prob=lambda s: Fraction(1,ats.num_states))
+ats.new_state_choice(state=0, targets=[1,2], probs=[1/2, 1/2])
+annotation = ats.new_ap_annotation("deadlock")
+annotation.state_values = [False, False, True]
+
+umbi.ats.write(ats, "out.umb")
+```
+
 More examples can be found in the [examples](./examples) folder.
 
 ## API

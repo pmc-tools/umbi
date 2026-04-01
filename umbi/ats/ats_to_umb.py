@@ -335,4 +335,5 @@ def write(ats: SimpleAts, umbpath: str | pathlib.Path) -> None:
     :param umbpath: path to the umbfile to write to
     """
     umb = explicit_ats_to_explicit_umb(ats)
+    print(umb.index)
     umbi.umb.write(umb, umbpath)
