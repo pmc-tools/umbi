@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       level:
-        description: "Which level to bump: patch, minor, or major"
+        description: "which level to bump: patch, minor, or major"
         required: false
         type: choice
         options: [patch, minor, major]

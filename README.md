@@ -116,12 +116,15 @@ pyright umbi/       # check specific directory
 
 ### Release
 
-Dependencies are pinned in the [uv.lock](uv.lock) lockfile for reproducible builds. New versions are published to [PyPI](https://pypi.org/project/umbi/) via the [release workflow](.github/workflows/release.yml). The workflow is triggered automatically when:
-- a new version tag is pushed (format: `v*.*.*`)
-- the [bump version workflow](.github/workflows/bump.yml) completes successfully (can be run manually via GitHub actions)
+To bump the version, run
 
-The release workflow:
-1. updates the [uv.lock](uv.lock) lockfile to reflect any dependency changes
-2. builds the distribution packages
-3. publishes to PyPI via trusted publishing
-4. updates the stable branch pointer to track the latest release
+```bash
+bump-my-version bump <patch|minor|major>
+git push origin --follow-tags
+```
+or run the [bump version workflow](.github/workflows/bump.yml) (via GitHub Actions UI). When the new version tag is pushed, the [release workflow](.github/workflows/release.yml) is automatically triggered to:
+
+1. update [uv.lock](uv.lock) to pin dependencies
+2. build the distribution packages
+3. publish to [PyPI](https://pypi.org/project/umbi/) via trusted publishing
+4. update the stable branch to track the latest release
