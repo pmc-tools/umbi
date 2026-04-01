@@ -1,6 +1,6 @@
 # umbi
 
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue)](https://www.python.org/)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/)
 [![License MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/umbi)](https://pypi.org/project/umbi/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/pmc-tools/umbi/test-build.yml)](https://github.com/pmc-tools/umbi/actions)
