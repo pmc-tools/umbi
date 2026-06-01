@@ -44,7 +44,7 @@ annotation.state_values = [False, False, True]
 umbi.ats.write(ats, "out.umb")
 ```
 
-More examples can be found in the [examples](./examples) folder.
+More examples can be found in the [examples](https://github.com/pmc-tools/umbi/tree/main/examples) folder.
 
 ## API
 
@@ -54,7 +54,7 @@ More examples can be found in the [examples](./examples) folder.
 
 **[`ExplicitUmb`](umbi/umb/explicit_umb.py)** - in-memory representation of a typical umbfile. Attributes are standard Python objects (lists, dicts, dataclasses) providing a deserialized view of the file contents.
 
-**[`SimpleAts`](umbi/ats/simple_ats.py)** - format-agnostic abstraction for annotated transition systems (states, transitions, annotations, etc.). Recommended for most use cases: easiest to use programmatically and remains stable across UMB format changes. See [umbi.ats.examples](./umbi/ats/examples/) for usage examples.
+**[`SimpleAts`](umbi/ats/simple_ats.py)** - format-agnostic abstraction for annotated transition systems (states, transitions, annotations, etc.). Recommended for most use cases: easiest to use programmatically and remains stable across UMB format changes. See [umbi.ats.examples](https://github.com/pmc-tools/umbi/tree/main/umbi/ats/examples/) for usage examples.
 
 ## CLI
 
