@@ -15,7 +15,7 @@ pip install umbi
 
 ## Quick start
 
-A short example where we read a umbfile into an [`SimpleAts`](umbi/ats/explicit_ats.py) object, modify initial states, and write it back:
+A short example where we read a umbfile into an [`SimpleAts`](https://github.com/pmc-tools/umbi/blob/main/umbi/ats/explicit_ats.py) object, modify initial states, and write it back:
 
 ```python
 import umbi
@@ -50,11 +50,11 @@ More examples can be found in the [examples](https://github.com/pmc-tools/umbi/t
 
 `umbi` offers multiple levels of abstraction for working with UMB files:
 
-**[`TarFile`](umbi/tar/tar_file.py) and [`TarCoder`](umbi/tar/tar_coder.py)** - low-level access to umbfile contents.
+**[`TarFile`](https://github.com/pmc-tools/umbi/blob/main/umbi/tar/tar_file.py) and [`TarCoder`](https://github.com/pmc-tools/umbi/blob/main/umbi/tar/tar_coder.py)** - low-level access to umbfile contents.
 
-**[`ExplicitUmb`](umbi/umb/explicit_umb.py)** - in-memory representation of a typical umbfile. Attributes are standard Python objects (lists, dicts, dataclasses) providing a deserialized view of the file contents.
+**[`ExplicitUmb`](https://github.com/pmc-tools/umbi/blob/main/umbi/umb/explicit_umb.py)** - in-memory representation of a typical umbfile. Attributes are standard Python objects (lists, dicts, dataclasses) providing a deserialized view of the file contents.
 
-**[`SimpleAts`](umbi/ats/simple_ats.py)** - format-agnostic abstraction for annotated transition systems (states, transitions, annotations, etc.). Recommended for most use cases: easiest to use programmatically and remains stable across UMB format changes. See [umbi.ats.examples](https://github.com/pmc-tools/umbi/tree/main/umbi/ats/examples/) for usage examples.
+**[`SimpleAts`](https://github.com/pmc-tools/umbi/blob/main/umbi/ats/simple_ats.py)** - format-agnostic abstraction for annotated transition systems (states, transitions, annotations, etc.). Recommended for most use cases: easiest to use programmatically and remains stable across UMB format changes. See [umbi.ats.examples](https://github.com/pmc-tools/umbi/tree/main/umbi/ats/examples/) for usage examples.
 
 ## CLI
 
@@ -105,7 +105,7 @@ Current test coverage:
 
 ### Code Quality
 
-Pre-commit hooks automatically run code quality checks before each commit. Configuration: [.pre-commit-config.yaml](.pre-commit-config.yaml)
+Pre-commit hooks automatically run code quality checks before each commit. Configuration: [.pre-commit-config.yaml](https://github.com/pmc-tools/umbi/blob/main/.pre-commit-config.yaml)
 
 Set up the hooks with:
 
@@ -121,14 +121,14 @@ pre-commit run --all-files
 
 Individual tools can be run manually:
 
-**[Ruff](https://github.com/astral-sh/ruff)** -- Code formatting and linting. Config: [pyproject.toml](pyproject.toml) (`[tool.ruff]`)
+**[Ruff](https://github.com/astral-sh/ruff)** -- Code formatting and linting. Config: [pyproject.toml](https://github.com/pmc-tools/umbi/blob/main/pyproject.toml) (`[tool.ruff]`)
 ```bash
 ruff check .       # check for issues
 ruff check . --fix # check and fix
 ruff format .      # format code
 ```
 
-**[Pyright](https://github.com/microsoft/pyright)** -- Static type checking. Config: [pyproject.toml](pyproject.toml) (`[tool.pyright]`)
+**[Pyright](https://github.com/microsoft/pyright)** -- Static type checking. Config: [pyproject.toml](https://github.com/pmc-tools/umbi/blob/main/pyproject.toml) (`[tool.pyright]`)
 ```bash
 pyright             # check entire project
 pyright umbi/       # check specific directory
@@ -142,9 +142,9 @@ To bump the version, run
 bump-my-version bump <patch|minor|major>
 git push origin --follow-tags
 ```
-or run the [bump version workflow](.github/workflows/bump.yml) (via GitHub Actions UI). When the new version tag is pushed, the [release workflow](.github/workflows/release.yml) is automatically triggered to:
+or run the [bump version workflow](https://github.com/pmc-tools/umbi/blob/main/.github/workflows/bump.yml) (via GitHub Actions UI). When the new version tag is pushed, the [release workflow](https://github.com/pmc-tools/umbi/blob/main/.github/workflows/release.yml) is automatically triggered to:
 
-1. update [uv.lock](uv.lock) to pin dependencies
+1. update [uv.lock](https://github.com/pmc-tools/umbi/blob/main/uv.lock) to pin dependencies
 2. build the distribution packages
 3. publish to [PyPI](https://pypi.org/project/umbi/) via trusted publishing
 4. update the stable branch to track the latest release
