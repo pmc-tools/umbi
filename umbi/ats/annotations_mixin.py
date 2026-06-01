@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass, field
+from typing import cast
 
 logger = logging.getLogger(__name__)
 
@@ -28,14 +29,24 @@ class AnnotationsMixin(HasCommonEntitySpaces):
         """Get the annotation categories of the ATS."""
         return list(self.annotations.keys())
 
-    def new_annotation(self, category: str, name: str, **kwargs) -> Annotation:
-        """Add an annotation to the ATS."""
+    def add_annotation(self, category: str, annotation: Annotation):
+        """Add an annotation to the ATS. For categories 'rewards' and 'aps', the annotation must be of the type
+        RewardAnnotation and AtomicPropositionAnnotation, respectively."""
         if category not in self.annotations:
             self.annotations[category] = {}
-        if name in self.annotations[category]:
-            raise ValueError(f"annotation with name {name} already exists in category {category}")
-        annotation = Annotation(name=name, entity_spaces=self._common_entity_spaces, **kwargs)
-        self.annotations[category][name] = annotation
+        if annotation.name in self.annotations[category]:
+            raise ValueError(f"annotation with name {annotation.name} already exists in category {category}")
+        self.annotations[category][annotation.name] = annotation
+
+    def new_annotation(self, category: str, name: str, **kwargs) -> Annotation:
+        """Create a new annotation and add it to the ATS."""
+        # rewards and aps are categories associated with specific annotation types
+        AnnotationClass = {
+            "rewards": RewardAnnotation,
+            "aps": AtomicPropositionAnnotation,
+        }.get(category, Annotation)
+        annotation = AnnotationClass(name=name, entity_spaces=self._common_entity_spaces, **kwargs)
+        self.add_annotation(category, annotation)
         return annotation
 
     @property
@@ -61,11 +72,7 @@ class AnnotationsMixin(HasCommonEntitySpaces):
 
     def new_reward_annotation(self, name: str, **kwargs) -> RewardAnnotation:
         """Add a reward annotation."""
-        if self.has_reward_annotation(name):
-            raise ValueError(f"reward annotation with name {name} already exists")
-        annotation = RewardAnnotation(name=name, entity_spaces=self._common_entity_spaces, **kwargs)
-        self.reward_annotations[name] = annotation
-        return annotation
+        return cast(RewardAnnotation, self.new_annotation(category="rewards", name=name, **kwargs))
 
     def get_reward_annotation(self, name: str) -> RewardAnnotation:
         """Get the reward annotation with the given name."""
@@ -98,11 +105,7 @@ class AnnotationsMixin(HasCommonEntitySpaces):
 
     def new_ap_annotation(self, name: str, **kwargs) -> AtomicPropositionAnnotation:
         """Add an atomic proposition annotation."""
-        if self.has_ap_annotation(name):
-            raise ValueError(f"atomic proposition annotation with name {name} already exists")
-        annotation = AtomicPropositionAnnotation(name=name, entity_spaces=self._common_entity_spaces, **kwargs)
-        self.ap_annotations[name] = annotation
-        return annotation
+        return cast(AtomicPropositionAnnotation, self.new_annotation(category="aps", name=name, **kwargs))
 
     def get_ap_annotation(self, name: str) -> AtomicPropositionAnnotation:
         """Get the atomic proposition annotation with the given name."""
