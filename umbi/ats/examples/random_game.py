@@ -210,13 +210,9 @@ def random_game(num_states: int, seed: int | None = None) -> SimpleAts:
         for action in sorted(actions_at_state[s]):
             choice = ats.new_state_choice(state=s)
             ats.choice_to_choice_action[choice] = action
-
-            # get all branches for this (s, action) pair
+            # add all branches for this (s, action) pair
             branches = delta[s][action]
-            branches.sort()  # sort by target state
-
             for target, prob in branches:
-                ats.new_choice_branch(choice=choice, target=target, prob=prob)
                 ats.new_choice_branch(choice=choice, target=target, prob=prob)
 
     build_time = time.time() - build_start
