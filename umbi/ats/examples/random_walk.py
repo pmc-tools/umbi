@@ -28,14 +28,14 @@ def random_walk(num_states: int) -> SimpleAts:
     # build structure
     for state in ats.states:
         # left action
-        choice = ats.new_state_choice(state=state)
+        choice = ats.new_choice(state=state)
         ats.choice_to_choice_action[choice] = 0
         left = max(0, state - 1)
         ats.new_choice_branch(choice=choice, target=left, prob=Fraction(9, 10))
         ats.new_choice_branch(choice=choice, target=state, prob=Fraction(1, 10))
 
         # right action
-        choice = ats.new_state_choice(state=state)
+        choice = ats.new_choice(state=state)
         ats.choice_to_choice_action[choice] = 1
         right = min(num_states - 1, state + 1)
         ats.new_choice_branch(choice=choice, target=right, prob=Fraction(9, 10))

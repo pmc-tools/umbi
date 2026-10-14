@@ -2,6 +2,8 @@ import logging
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, fields
 
+from typing_extensions import deprecated
+
 from umbi.datatypes import Numeric
 
 from .actions_mixin import ActionsMixin
@@ -59,7 +61,7 @@ class SimpleAts(
     def __eq__(self, other: object) -> bool:
         return self.equals(other)
 
-    def new_state_choice(
+    def new_choice(
         self,
         state: int,
         targets: Sequence[int] | None = None,
@@ -77,7 +79,7 @@ class SimpleAts(
         :param action_name: optional choice action name; will ensure the existence of the choice action name if provided
         :return: the new choice index
         """
-        choice = super().new_state_choice(state, targets=targets, probs=probs, target_prob=target_prob)
+        choice = super().new_choice(state, targets=targets, probs=probs, target_prob=target_prob)
         if action is not None:
             self._ensure_choice_action_exists(action)
         elif action_name is not None:
@@ -95,6 +97,40 @@ class SimpleAts(
         if action is not None:
             self.choice_to_choice_action[choice] = action
         return choice
+
+    def new_choice_absorbing(
+        self,
+        state: int,
+        action: int | None = None,
+        action_name: str | None = None,
+    ) -> int:
+        """Add a choice that transitions back to the given state with probability one."""
+        return self.new_choice(
+            state,
+            targets=[state],
+            probs=[1],
+            action=action,
+            action_name=action_name,
+        )
+
+    @deprecated("Use new_choice instead.")
+    def new_state_choice(
+        self,
+        state: int,
+        targets: Sequence[int] | None = None,
+        probs: Sequence[Numeric] | None = None,
+        target_prob: Callable[[int], Numeric] | None = None,
+        action: int | None = None,
+        action_name: str | None = None,
+    ) -> int:
+        return self.new_choice(
+            state,
+            targets=targets,
+            probs=probs,
+            target_prob=target_prob,
+            action=action,
+            action_name=action_name,
+        )
 
     ### Removing states leading to removing choices. ###
 

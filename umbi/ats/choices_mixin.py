@@ -154,7 +154,7 @@ class ChoicesMixin(
             # TODO check that probabilities sum to 1
         super().validate()
 
-    def new_state_choice(
+    def new_choice(
         self,
         state: int,
         targets: Sequence[int] | None = None,

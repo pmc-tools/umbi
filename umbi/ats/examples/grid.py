@@ -117,7 +117,7 @@ def grid(grid: str) -> SimpleAts:
     for (x, y), state in cell_to_state.items():
         for direction, (dx, dy) in direction_dxdy.items():
             target = (x + dx, y + dy)
-            choice = ats.new_state_choice(state=state)
+            choice = ats.new_choice(state=state)
             ats.choice_to_choice_action[choice] = ats.choice_action_to_name.index(direction)
 
             if target in cell_to_state:

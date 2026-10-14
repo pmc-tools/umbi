@@ -70,7 +70,7 @@ def explicit_umb_to_explicit_ats(umb: umbi.umb.ExplicitUmb) -> SimpleAts:
     if ts.num_choices > 0:
         for state in ats.states:
             for choice_idx in range(state_to_choices[state], state_to_choices[state + 1]):
-                choice = ats.new_state_choice(state=state)
+                choice = ats.new_choice(state=state)
                 if ts.num_branches > 0:
                     assert umb.choice_to_branches is not None, "num_branches > 0 but choice_to_branches is None"
                     for branch_idx in range(umb.choice_to_branches[choice_idx], umb.choice_to_branches[choice_idx + 1]):

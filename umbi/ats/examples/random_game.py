@@ -208,7 +208,7 @@ def random_game(num_states: int, seed: int | None = None) -> SimpleAts:
 
     for s in ats.states:
         for action in sorted(actions_at_state[s]):
-            choice = ats.new_state_choice(state=s)
+            choice = ats.new_choice(state=s)
             ats.choice_to_choice_action[choice] = action
             # add all branches for this (s, action) pair
             branches = delta[s][action]
