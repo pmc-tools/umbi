@@ -214,6 +214,15 @@ class TestStructTypeAttributes:
 class TestStructSerialization:
     """Test struct serialization and deserialization."""
 
+    @pytest.mark.parametrize("value", [0, 0x12345678, 0xFFFFFFFF])
+    def test_uint32_byte_order(self, value):
+        struct_type = StructType()
+        struct_type.add_attribute("count", UINT32)
+        data = value.to_bytes(4, byteorder="little")
+
+        assert bytes_to_struct(data, struct_type) == {"count": value}
+        assert struct_to_bytes({"count": value}, struct_type) == data
+
     def test_simple_struct_to_bytes(self):
         """Test packing a simple struct to bytes."""
         struct_type = StructType()

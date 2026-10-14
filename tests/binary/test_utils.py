@@ -172,7 +172,7 @@ class TestSplitBitsHalf:
         left, right = split_bits_half(bits)
         assert len(left) == 500
         assert len(right) == 500
-        assert (left + right).len == 1000
+        assert len(left + right) == 1000
 
     def test_split_bits_half_preserves_values(self):
         """Test that values are preserved after splitting."""
@@ -189,7 +189,7 @@ class TestSplittingConsistency:
         data = b"\xf0\x0f"
         left_bytes, right_bytes = split_bytes_half(data)
 
-        bits = BitArray(bytes=data)
+        bits = BitArray(data)
         left_bits, right_bits = split_bits_half(bits)
 
         assert left_bytes == left_bits.bytes

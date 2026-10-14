@@ -163,7 +163,7 @@ class StructUnpacker:
         assert len(self.bytestring) >= num_bytes_needed, "not enough data to fill the buffer"
         for _ in range(num_bytes_needed):  # read one byte at a time since the bytestring is little-endian
             next_bytes, self.bytestring = split_bytes(self.bytestring, 1)
-            self.buffer = BitArray(bytes=next_bytes) + self.buffer  # prepend to the buffer to keep MSB at [0]
+            self.buffer = BitArray(next_bytes) + self.buffer  # prepend to the buffer to keep MSB at [0]
 
     def extract_from_buffer(self, num_bits: int) -> BitArray:
         """Extract the given number of bits from the buffer."""
