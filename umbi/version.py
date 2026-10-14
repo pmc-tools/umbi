@@ -8,12 +8,14 @@ T = TypeVar("T")
 
 
 def get_pyproject_attribute(attribute: str, default: T, section: str = "project") -> T:
-    """Read an attribute from pyproject.toml."""
+    """Read an attribute from a dot-separated table path in pyproject.toml."""
     pyproject_path = os.path.join(os.path.dirname(__file__), "..", "pyproject.toml")
     try:
         with open(pyproject_path, "rb") as f:
             data = tomllib.load(f)
-            section_data = data.get(section, {})
+            section_data = data
+            for key in section.split("."):
+                section_data = section_data.get(key, {})
             return section_data.get(attribute, default)
     except (FileNotFoundError, KeyError):
         return default
@@ -21,5 +23,5 @@ def get_pyproject_attribute(attribute: str, default: T, section: str = "project"
 
 __toolname__ = get_pyproject_attribute("name", "unknown")
 __version__ = get_pyproject_attribute("version", "unknown")
-__format_version__ = get_pyproject_attribute("format_version", 0, "tool.umbi")
-__format_revision__ = get_pyproject_attribute("format_revision", 1, "tool.umbi")
+__format_version__ = get_pyproject_attribute("format_version", 1, "tool.umbi")
+__format_revision__ = get_pyproject_attribute("format_revision", 0, "tool.umbi")
