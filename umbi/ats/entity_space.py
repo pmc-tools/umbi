@@ -147,6 +147,12 @@ class EntitySpace(Observable):
         self._notify_changed(self._num_entities)
         return new_entities
 
+    def ensure_entity_exists(self, entity: int):
+        """Ensure that the entity at the given index exists, creating entities up to it if needed."""
+        if entity < 0:
+            raise ValueError(f"Invalid {self.entity_name} index {entity}, must be >= 0.")
+        self.num_entities = max(self.num_entities, entity + 1)
+
     def _new_to_old_to_old_to_new(self, new_to_old: Sequence[int]) -> list[int | None]:
         """Given a new_to_old mapping, compute the corresponding old_to_new mapping."""
         old_to_new: list[int | None] = [None] * self.num_entities

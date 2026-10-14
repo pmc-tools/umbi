@@ -1,6 +1,8 @@
 import logging
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, fields
+
+from umbi.datatypes import Numeric
 
 from .actions_mixin import ActionsMixin
 from .annotations_mixin import AnnotationsMixin, ObservationsMixin
@@ -56,6 +58,43 @@ class SimpleAts(
 
     def __eq__(self, other: object) -> bool:
         return self.equals(other)
+
+    def new_state_choice(
+        self,
+        state: int,
+        targets: Sequence[int] | None = None,
+        probs: Sequence[Numeric] | None = None,
+        target_prob: Callable[[int], Numeric] | None = None,
+        action: int | None = None,
+        action_name: str | None = None,
+    ) -> int:
+        """Add a choice to the given state.
+        :param state: source state for the new choice
+        :param targets: optional iterable of target states for the branches of the new choice
+        :param probs: optional probabilities for the new branches
+        :param target_prob: optional function mapping target states to branch probabilities
+        :param action: optional choice action; will ensure the existence of the choice action if provided
+        :param action_name: optional choice action name; will ensure the existence of the choice action name if provided
+        :return: the new choice index
+        """
+        choice = super().new_state_choice(state, targets=targets, probs=probs, target_prob=target_prob)
+        if action is not None:
+            self._ensure_choice_action_exists(action)
+        elif action_name is not None:
+            # look up the choice action by name, or create a new one if it doesn't exist
+            if not self.has_choice_to_choice_action:
+                action = self._new_choice_action()
+            if not self.has_choice_action_to_name:
+                self.add_choice_action_to_name()
+            if action is None:
+                try:
+                    action = self.choice_action_to_name.index(action_name)
+                except ValueError:
+                    action = self._new_choice_action()
+            self.choice_action_to_name[action] = action_name
+        if action is not None:
+            self.choice_to_choice_action[choice] = action
+        return choice
 
     ### Removing states leading to removing choices. ###
 

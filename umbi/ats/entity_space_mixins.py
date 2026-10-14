@@ -46,6 +46,9 @@ class HasPlayerSpace(BaseMixin, ABC):
     def _new_players(self, num_players: int) -> list[int]:
         return self._player_space.new_entities(num_players)
 
+    def _ensure_player_exists(self, player: int):
+        self._player_space.ensure_entity_exists(player)
+
     def _remove_player(self, player: int) -> list[int]:
         return self._player_space.remove_entity(player)
 
@@ -83,6 +86,9 @@ class HasStateSpace(BaseMixin, ABC):
 
     def _new_states(self, num_states: int) -> list[int]:
         return self._state_space.new_entities(num_states)
+
+    def _ensure_state_exists(self, state: int):
+        self._state_space.ensure_entity_exists(state)
 
     def _remove_state(self, state: int) -> list[int]:
         return self._state_space.remove_entity(state)
@@ -122,6 +128,9 @@ class HasObservationSpace(BaseMixin, ABC):
     def _new_observations(self, num_observations: int) -> list[int]:
         return self._observation_space.new_entities(num_observations)
 
+    def _ensure_observation_exists(self, observation: int):
+        self._observation_space.ensure_entity_exists(observation)
+
     def _remove_observation(self, observation: int) -> list[int]:
         return self._observation_space.remove_entity(observation)
 
@@ -155,6 +164,9 @@ class HasChoiceSpace(BaseMixin, ABC):
 
     def _new_choices(self, num_choices: int) -> list[int]:
         return self._choice_space.new_entities(num_choices)
+
+    def _ensure_choice_exists(self, choice: int):
+        self._choice_space.ensure_entity_exists(choice)
 
     def _remove_choice(self, choice: int) -> list[int]:
         return self._choice_space.remove_entity(choice)
@@ -190,6 +202,9 @@ class HasBranchSpace(BaseMixin, ABC):
     def _new_branches(self, num_branches: int) -> list[int]:
         return self._branch_space.new_entities(num_branches)
 
+    def _ensure_branch_exists(self, branch: int):
+        self._branch_space.ensure_entity_exists(branch)
+
     def _remove_branch(self, branch: int) -> list[int]:
         return self._branch_space.remove_entity(branch)
 
@@ -224,6 +239,9 @@ class HasChoiceActionSpace(BaseMixin, ABC):
     def _new_choice_actions(self, num_choice_actions: int) -> list[int]:
         return self._choice_action_space.new_entities(num_choice_actions)
 
+    def _ensure_choice_action_exists(self, choice_action: int):
+        self._choice_action_space.ensure_entity_exists(choice_action)
+
     def _remove_choice_action(self, choice_action: int) -> list[int]:
         return self._choice_action_space.remove_entity(choice_action)
 
@@ -257,6 +275,9 @@ class HasBranchActionSpace(BaseMixin, ABC):
 
     def _new_branch_actions(self, num_branch_actions: int) -> list[int]:
         return self._branch_action_space.new_entities(num_branch_actions)
+
+    def _ensure_branch_action_exists(self, branch_action: int):
+        self._branch_action_space.ensure_entity_exists(branch_action)
 
     def _remove_branch_action(self, branch_action: int) -> list[int]:
         return self._branch_action_space.remove_entity(branch_action)

@@ -68,7 +68,7 @@ class ChoiceActionToNameMixin(HasChoiceActionSpace):
     def _must_have_choice_action_to_name(self) -> bool:
         return False  # choice_action_to_name is always optional
 
-    def new_choice_action_to_name(self):
+    def add_choice_action_to_name(self):
         self._choice_action_to_name_manager.create_mapping()
 
     def remove_choice_action_to_name(self):
