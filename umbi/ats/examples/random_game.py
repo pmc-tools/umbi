@@ -30,23 +30,25 @@ def fill_action(s: int, action: int, num_states: int, delta: dict) -> list[tuple
         delta[s][action] = []
 
     branches = delta[s][action]
-    existing_targets = {target for target, _ in branches}
+    assert not branches, "fill_action expects a fresh action"
 
-    # maintain a list of available targets and update it incrementally
-    available_targets = [sp for sp in range(num_states) if sp not in existing_targets]
+    # available targets are a virtual list [0, ..., num_states - 1] from which targets are swap-removed:
+    # only the positions overwritten by swaps are stored, so each draw is O(1)
+    num_available = num_states
+    swapped = {}
 
-    while available_targets:
+    while num_available > 0:
         # pick a random state s' from available targets
-        idx = random.randrange(len(available_targets))
-        sp = available_targets[idx]
+        idx = random.randrange(num_available)
+        sp = swapped.get(idx, idx)
 
         # increase delta[s][a] with sp by a random number in (0, 1]
         prob = random.uniform(0.01, 1.0)
         branches.append((sp, prob))
 
         # remove the chosen target from available list
-        available_targets[idx] = available_targets[-1]
-        available_targets.pop()
+        num_available -= 1
+        swapped[idx] = swapped.get(num_available, num_available)
 
         # calculate total probability
         total_prob = sum(p for _, p in branches)
@@ -56,7 +58,7 @@ def fill_action(s: int, action: int, num_states: int, delta: dict) -> list[tuple
             # decrease the most recently modified probability so sum = 1
             branches[-1] = (sp, prob - (total_prob - 1))
             break
-        elif total_prob == 1 or not available_targets:
+        elif total_prob == 1 or num_available == 0:
             # either sum is 1 or all states have been assigned
             if total_prob < 1:
                 # increase the most recently modified probability so sum = 1
@@ -107,7 +109,8 @@ def random_transition_function(
             continue
 
         # pick any state s' with index smaller than s
-        sp = random.choice(state_order[:i])
+        # (same draw as random.choice(state_order[:i]), without copying the prefix)
+        sp = state_order[random.randrange(i)]
 
         # create an action a that starts at s'
         action = action_counter
@@ -196,6 +199,7 @@ def random_game(num_states: int, seed: int | None = None) -> SimpleAts:
     is_player0_state = [random.choice([True, False]) for _ in range(num_states)]
 
     # set player information
+    ats.player_to_name = ["player0", "player1"]
     ats.state_to_player = [0 if is_player0 else 1 for is_player0 in is_player0_state]
 
     # build the ATS structure from delta and actions_at_state

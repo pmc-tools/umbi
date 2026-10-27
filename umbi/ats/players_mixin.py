@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class PlayerToNameMixin(HasPlayerSpace):
-    #: Player-to-name mapping. Can be set only if num_players >= 1.
+    #: Player-to-name mapping. Can be set only if num_players >= 1, must be set if num_players >= 2.
     _player_to_name_manager: OptionalMappingManager[str] = field(init=False)
 
     def __post_init__(self):
@@ -27,7 +27,7 @@ class PlayerToNameMixin(HasPlayerSpace):
         return self._player_space.has_entities
 
     def _must_have_player_to_name(self, *args) -> bool:
-        return False  # player_to_name is always optional
+        return self._player_space.num_entities >= 2
 
     def add_player_to_name(self):
         self._player_to_name_manager.create_mapping()
