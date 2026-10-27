@@ -17,6 +17,10 @@ from .model_data import ModelData, ModelDataSchema
 from .transition_system import TransitionSystem, TransitionSystemSchema
 from .valuations import ValuationDescription, ValuationsSchema
 
+#: version of the UMB format that umbi reads and writes; independent of umbi's own version
+UMB_FORMAT_VERSION = 1
+UMB_FORMAT_REVISION = 0
+
 
 class UmbIndexSchema(JsonSchema):
     """UMB index file schema."""
@@ -37,9 +41,9 @@ class UmbIndexSchema(JsonSchema):
 @dataclass
 class UmbIndex(JsonSchemaResult):
     #: major version of format, change breaks compatibility
-    format_version: int = 0
+    format_version: int = UMB_FORMAT_VERSION
     #: minor version of format, nothing that breaks compatibility (additions and such)
-    format_revision: int = 0
+    format_revision: int = UMB_FORMAT_REVISION
     file_data: FileData | None = field(default=None, compare=False)  # exclude from equality checks
     model_data: ModelData | None = None
     transition_system: TransitionSystem = field(default_factory=TransitionSystem)

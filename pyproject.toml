@@ -47,10 +47,6 @@ pythonpath = ["."]
 [project.scripts]
 umbi = "umbi.__main__:main"
 
-[tool.umbi]
-format_version = 1
-format_revision = 0
-
 [tool.bumpversion]
 current_version = "0.2.14"
 commit = true

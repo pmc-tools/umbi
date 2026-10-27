@@ -1,27 +1,9 @@
 """Version information for umbi package."""
 
-import os
-import tomllib
-from typing import TypeVar
+import importlib.metadata
 
-T = TypeVar("T")
-
-
-def get_pyproject_attribute(attribute: str, default: T, section: str = "project") -> T:
-    """Read an attribute from a dot-separated table path in pyproject.toml."""
-    pyproject_path = os.path.join(os.path.dirname(__file__), "..", "pyproject.toml")
-    try:
-        with open(pyproject_path, "rb") as f:
-            data = tomllib.load(f)
-            section_data = data
-            for key in section.split("."):
-                section_data = section_data.get(key, {})
-            return section_data.get(attribute, default)
-    except (FileNotFoundError, KeyError):
-        return default
-
-
-__toolname__ = get_pyproject_attribute("name", "unknown")
-__version__ = get_pyproject_attribute("version", "unknown")
-__format_version__ = get_pyproject_attribute("format_version", 1, "tool.umbi")
-__format_revision__ = get_pyproject_attribute("format_revision", 0, "tool.umbi")
+__toolname__ = "umbi"
+try:
+    __version__ = importlib.metadata.version(__toolname__)
+except importlib.metadata.PackageNotFoundError:  # running from an uninstalled checkout
+    __version__ = "unknown"

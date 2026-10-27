@@ -3,7 +3,6 @@ import pathlib
 import umbi.datatypes
 import umbi.umb
 import umbi.umb.index
-import umbi.version
 from umbi.binary import SizedType
 
 from .annotations import Annotation
@@ -148,9 +147,7 @@ def explicit_ats_to_explicit_umb(ats: SimpleAts) -> umbi.umb.ExplicitUmb:
     ## index
 
     umb.index = umbi.umb.index.UmbIndex(
-        # insert our format_version, format_revision, file data
-        format_version=umbi.version.__format_version__,
-        format_revision=umbi.version.__format_revision__,
+        # format_version and format_revision default to ours; insert our file data
         file_data=umbi.umb.index.umbi_file_data(),
         # add model data
         model_data=(

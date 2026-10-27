@@ -1,7 +1,7 @@
 from importlib import import_module
 
 from .logger import set_log_level, setup_logging
-from .version import __format_revision__, __format_version__, __toolname__, __version__
+from .version import __toolname__, __version__
 
 _SUBMODULES = {"ats", "binary", "datatypes", "tar", "umb", "version"}
 
@@ -23,7 +23,5 @@ __all__ = [
     "setup_logging",
     "__toolname__",
     "__version__",
-    "__format_version__",
-    "__format_revision__",
     "version",
 ]

@@ -4,7 +4,7 @@ from .annotations import AnnotationDescription
 from .file_data import FileData, umbi_file_data, unix_timestamp
 from .model_data import ModelData
 from .transition_system import TransitionSystem
-from .umb_index import UmbIndex
+from .umb_index import UMB_FORMAT_REVISION, UMB_FORMAT_VERSION, UmbIndex
 from .valuations import ValuationDescription
 
 __all__ = [
@@ -15,5 +15,7 @@ __all__ = [
     "AnnotationDescription",
     "TransitionSystem",
     "UmbIndex",
+    "UMB_FORMAT_VERSION",
+    "UMB_FORMAT_REVISION",
     "ValuationDescription",
 ]
